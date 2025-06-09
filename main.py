@@ -181,15 +181,15 @@ class EdgeComputingLayer:
             timestamp=current_time,
             app_usage=app_usage,
             location=random.choice(['home', 'work', 'commute', 'leisure']),
-            communication_count=random.poisson(5),
+            communication_count=np.random.poisson(5),
             touch_interactions=random.randint(50, 500),
             unlock_frequency=random.randint(10, 100),
             battery_level=random.uniform(20, 100),
-            screen_time=random.exponential(0.3),  # Hours
+            screen_time=np.random.exponential(0.3),  # Hours
             typing_speed=random.uniform(20, 80),  # WPM
             ambient_light=random.uniform(0, 1000),
             accelerometer=[random.uniform(-1, 1) for _ in range(3)],
-            network_usage=random.exponential(100)  # MB
+            network_usage=np.random.exponential(100)  # MB
         )
     
     def preprocess_data(self, smartphone_data: UserBehaviorData, 

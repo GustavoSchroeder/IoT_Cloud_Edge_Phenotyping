@@ -175,7 +175,7 @@ class EdgeComputingLayer:
         
         # Simulate realistic app usage patterns
         apps = ['social_media', 'messaging', 'games', 'productivity', 'entertainment']
-        app_usage = {app: random.exponential(0.5) for app in apps}
+        app_usage = {app: np.random.exponential(0.5) for app in apps}
         
         return UserBehaviorData(
             timestamp=current_time,

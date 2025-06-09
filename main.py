@@ -556,9 +556,14 @@ def main():
     
     # Start MQTT broker for local testing
     print("🔌 Starting local MQTT broker...")
-    from mqtt_broker import start_mqtt_broker
-    broker = start_mqtt_broker()
-    time.sleep(5)  # Give broker more time to start properly
+    broker = None
+    try:
+        from mqtt_broker import start_mqtt_broker
+        broker = start_mqtt_broker()
+        time.sleep(3)  # Give broker time to start
+    except Exception as e:
+        print(f"⚠️  Could not start MQTT broker: {e}")
+        print("📡 Continuing without embedded broker (MQTT features may be limited)")
     
     system = IoTSystemManager()
     system.start_system()

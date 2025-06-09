@@ -37,7 +37,7 @@ class ContextualInsight:
     confidence: float
 
 # MQTT Configuration
-MQTT_BROKER = "localhost"  # Can be changed to external broker
+MQTT_BROKER = "127.0.0.1"  # Can be changed to external broker
 MQTT_PORT = 1883
 MQTT_TOPICS = {
     'digital_twin_data': 'iot/digitaltwin/behavior',
@@ -475,6 +475,16 @@ class IoTSystemManager:
         """Start the IoT system monitoring"""
         print("🚀 Starting Context-Aware IoT System for Technology Overuse Prevention")
         print("=" * 70)
+        print("\n🏗️  SYSTEM ARCHITECTURE:")
+        print("┌─────────────────┐    MQTT     ┌─────────────────┐")
+        print("│  Digital Twin   │◄──────────►│   Edge Layer    │")
+        print("│ (User Behavior) │   Broker    │ (Raspberry Pi)  │")
+        print("└─────────────────┘             └─────────────────┘")
+        print("         │                               │")
+        print("         ▼                               ▼")
+        print("   Behavior Data                 Context Detection")
+        print("   Pattern Analysis              Real-time Insights")
+        print("")
         
         self.system_running = True
         cycle_count = 0
@@ -505,16 +515,25 @@ class IoTSystemManager:
         data = result['processed_data']
         insights = result['insights']
         
+        # Show connection architecture
+        print("🔗 COMPONENT CONNECTIONS:")
+        print(f"   📱 Digital Twin → MQTT → 🖥️  Edge Layer")
+        print(f"   Digital Twin MQTT: {'🟢 Connected' if self.edge_layer.digital_twin.mqtt_connected else '🔴 Disconnected'}")
+        print(f"   Edge Layer MQTT: {'🟢 Connected' if self.edge_layer.mqtt_connected else '🔴 Disconnected'}")
+        
+        # Show data flow
+        if self.edge_layer.digital_twin.mqtt_connected and self.edge_layer.mqtt_connected:
+            print("   📡 Data Flow: Digital Twin → MQTT Broker → Edge Layer ✅")
+        else:
+            print("   📡 Data Flow: Digital Twin ❌ MQTT Broker ❌ Edge Layer")
+        
         # Show key metrics
         metrics = data['derived_metrics']
+        print(f"\n📊 PROCESSING METRICS:")
         print(f"📱 Usage Intensity: {metrics['usage_intensity']:.2f}")
         print(f"🌍 Context Score: {metrics['context_score']:.2f}")
         print(f"💪 Wellness Indicator: {metrics['wellness_indicator']:.2f}")
         print(f"💾 Buffer Size: {result['buffer_size']}")
-        
-        # Show MQTT status
-        mqtt_status = "🟢 Connected" if result.get('mqtt_status') else "🔴 Disconnected"
-        print(f"📡 MQTT Status: {mqtt_status}")
         
         # Show insights if any
         if insights:

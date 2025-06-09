@@ -8,7 +8,7 @@ import signal
 class MQTTBrokerManager:
     """Manages an embedded MQTT broker using mosquitto"""
     
-    def __init__(self, host='0.0.0.0', port=1883):
+    def __init__(self, host='127.0.0.1', port=1883):
         self.host = host
         self.port = port
         self.process = None

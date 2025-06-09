@@ -66,12 +66,22 @@ class SmartphoneDigitalTwin:
         self._setup_mqtt_connection()
     
     def _setup_mqtt_connection(self):
-        """Setup MQTT connection for Digital Twin"""
-        try:
-            self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-            self.mqtt_client.loop_start()
-        except Exception as e:
-            print(f"⚠️  Digital Twin MQTT connection failed: {e}")
+        """Setup MQTT connection for Digital Twin with retry logic"""
+        max_retries = 5
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"📱 Digital Twin attempting MQTT connection (attempt {attempt + 1}/{max_retries})")
+                self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+                self.mqtt_client.loop_start()
+                return  # Connection successful
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠️  Digital Twin MQTT connection attempt {attempt + 1} failed: {e}, retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"⚠️  Digital Twin MQTT connection failed after {max_retries} attempts: {e}")
     
     def _on_mqtt_connect(self, client, userdata, flags, rc):
         """MQTT connection callback"""
@@ -248,12 +258,22 @@ class EdgeComputingLayer:
         self.heartbeat_thread.start()
     
     def _setup_mqtt_connection(self):
-        """Setup MQTT connection for Edge Layer"""
-        try:
-            self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-            self.mqtt_client.loop_start()
-        except Exception as e:
-            print(f"⚠️  Edge Layer MQTT connection failed: {e}")
+        """Setup MQTT connection for Edge Layer with retry logic"""
+        max_retries = 5
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"🖥️  Edge Layer attempting MQTT connection (attempt {attempt + 1}/{max_retries})")
+                self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+                self.mqtt_client.loop_start()
+                return  # Connection successful
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠️  Edge Layer MQTT connection attempt {attempt + 1} failed: {e}, retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"⚠️  Edge Layer MQTT connection failed after {max_retries} attempts: {e}")
     
     def _on_mqtt_connect(self, client, userdata, flags, rc):
         """MQTT connection callback"""
@@ -579,12 +599,17 @@ def main():
     try:
         from mqtt_broker import start_mqtt_broker
         broker = start_mqtt_broker()
-        time.sleep(3)  # Give broker time to start
+        print("⏳ Waiting for MQTT broker to be ready...")
+        time.sleep(5)  # Give broker more time to start
+        print("✅ MQTT broker startup complete")
     except Exception as e:
         print(f"⚠️  Could not start MQTT broker: {e}")
         print("📡 Continuing without embedded broker (MQTT features may be limited)")
     
+    print("🔄 Initializing IoT System components...")
     system = IoTSystemManager()
+    print("🔗 Establishing MQTT connections...")
+    time.sleep(2)  # Additional time for connections
     system.start_system()
 
 if __name__ == "__main__":

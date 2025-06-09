@@ -48,13 +48,42 @@ persistence false
     
     def _start_mock_broker(self):
         """Start a mock broker that just prints status"""
-        print(f"🔌 Mock MQTT Broker started on {self.host}:{self.port}")
-        print("📡 MQTT clients can connect (messages will be logged)")
+        import socket
         
-        while self.running:
-            time.sleep(5)
-            if self.running:
-                print("💓 Mock MQTT Broker heartbeat")
+        # Try to bind to the port to make it available
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self.host, self.port))
+            sock.listen(5)
+            print(f"🔌 Mock MQTT Broker started and listening on {self.host}:{self.port}")
+            print("📡 MQTT clients can connect (basic socket server active)")
+            
+            # Accept connections but don't process them fully
+            sock.settimeout(1.0)  # Non-blocking with timeout
+            
+            while self.running:
+                try:
+                    conn, addr = sock.accept()
+                    print(f"📡 Mock MQTT: Connection from {addr}")
+                    conn.close()  # Close immediately for now
+                except socket.timeout:
+                    pass  # Continue loop
+                except Exception as e:
+                    if self.running:
+                        print(f"⚠️  Mock broker connection error: {e}")
+                
+                time.sleep(0.1)  # Small delay
+            
+            sock.close()
+            
+        except Exception as e:
+            print(f"⚠️  Could not bind mock broker to port {self.port}: {e}")
+            # Fallback to simple heartbeat
+            while self.running:
+                time.sleep(5)
+                if self.running:
+                    print("💓 Mock MQTT Broker heartbeat (no socket binding)")
     
     def stop(self):
         """Stop the broker"""

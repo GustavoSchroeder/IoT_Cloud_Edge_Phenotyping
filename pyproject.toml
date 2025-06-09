@@ -5,6 +5,7 @@ description = ""
 authors = ["Your Name <you@example.com>"]
 requires-python = ">=3.11"
 dependencies = [
+    "hbmqtt>=0.9.6",
     "numpy>=2.3.0",
     "paho-mqtt>=2.1.0",
 ]

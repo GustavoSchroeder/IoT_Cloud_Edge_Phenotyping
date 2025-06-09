@@ -59,7 +59,7 @@ class SmartphoneDigitalTwin:
         self.session_threshold = 2.0  # hours per session
         
         # MQTT setup for Digital Twin
-        self.mqtt_client = mqtt.Client(client_id=f"digital_twin_{user_id}_{uuid.uuid4().hex[:8]}")
+        self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"digital_twin_{user_id}_{uuid.uuid4().hex[:8]}")
         self.mqtt_client.on_connect = self._on_mqtt_connect
         self.mqtt_client.on_message = self._on_mqtt_message
         self.mqtt_connected = False
@@ -237,7 +237,7 @@ class EdgeComputingLayer:
         self.context_detection_active = True
         
         # MQTT setup for Edge Layer
-        self.mqtt_client = mqtt.Client(client_id=f"edge_layer_{uuid.uuid4().hex[:8]}")
+        self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"edge_layer_{uuid.uuid4().hex[:8]}")
         self.mqtt_client.on_connect = self._on_mqtt_connect
         self.mqtt_client.on_message = self._on_mqtt_message
         self.mqtt_connected = False
@@ -554,11 +554,11 @@ def main():
     print("⚡ Edge AI: Real-time Context Detection")
     print("📡 MQTT: Communication Layer for IoT Components")
     
-    # Start simple MQTT broker for local testing
+    # Start MQTT broker for local testing
     print("🔌 Starting local MQTT broker...")
     from mqtt_broker import start_mqtt_broker
     broker = start_mqtt_broker()
-    time.sleep(2)  # Give broker time to start
+    time.sleep(5)  # Give broker more time to start properly
     
     system = IoTSystemManager()
     system.start_system()

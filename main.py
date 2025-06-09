@@ -85,7 +85,7 @@ class SmartphoneDigitalTwin:
                 else:
                     print(f"⚠️  Digital Twin MQTT connection failed after {max_retries} attempts: {e}")
     
-    def _on_mqtt_connect(self, client, userdata, flags, rc):
+    def _on_mqtt_connect(self, client, userdata, flags, rc, properties=None):
         """MQTT connection callback"""
         if rc == 0:
             self.mqtt_connected = True
@@ -279,7 +279,7 @@ class EdgeComputingLayer:
                 else:
                     print(f"⚠️  Edge Layer MQTT connection failed after {max_retries} attempts: {e}")
     
-    def _on_mqtt_connect(self, client, userdata, flags, rc):
+    def _on_mqtt_connect(self, client, userdata, flags, rc, properties=None):
         """MQTT connection callback"""
         if rc == 0:
             self.mqtt_connected = True

@@ -1,0 +1,55 @@
+Traceback (most recent call last):
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 4523, in _thread_main
+    self.loop_forever(retry_first_connection=True)
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 2297, in loop_forever
+    rc = self._loop(timeout)
+         ^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 1686, in _loop
+    rc = self.loop_read()
+         ^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 2100, in loop_read
+    rc = self._packet_read()
+         ^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 3142, in _packet_read
+    rc = self._packet_handle()
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 3814, in _packet_handle
+    return self._handle_connack()
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 3934, in _handle_connack
+    on_connect(
+TypeError: SmartphoneDigitalTwin._on_mqtt_connect() takes 5 positional arguments but 6 were given
+🖥️  Edge Layer attempting MQTT connection (attempt 1/5)
+📡 Mock MQTT: Connection from ('127.0.0.1', 49403)
+📡 Mock MQTT: CONNECT from ('127.0.0.1', 49403)
+📡 Mock MQTT: CONNACK sent to ('127.0.0.1', 49403)
+Exception in thread paho-mqtt-client-edge_layer_7f48160c:
+Traceback (most recent call last):
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/nix/store/clx0mcir7qw8zk36zbr4jra789g3knf6-python3-3.11.10/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 4523, in _thread_main
+    self.loop_forever(retry_first_connection=True)
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 2297, in loop_forever
+    rc = self._loop(timeout)
+         ^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 1686, in _loop
+    rc = self.loop_read()
+         ^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 2100, in loop_read
+    rc = self._packet_read()
+         ^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 3142, in _packet_read
+    rc = self._packet_handle()
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 3814, in _packet_handle
+    return self._handle_connack()
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/paho/mqtt/client.py", line 3934, in _handle_connack
+    on_connect(
+TypeError: EdgeComputingLayer._on_mqtt_connect() takes 5 positional arguments but 6 were given

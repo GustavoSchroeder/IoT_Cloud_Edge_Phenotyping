@@ -8,6 +8,8 @@ from typing import Dict, List, Any
 from dataclasses import dataclass, asdict
 import numpy as np
 from collections import defaultdict, deque
+import paho.mqtt.client as mqtt
+import uuid
 
 @dataclass
 class UserBehaviorData:
@@ -34,6 +36,17 @@ class ContextualInsight:
     recommendation: str
     confidence: float
 
+# MQTT Configuration
+MQTT_BROKER = "localhost"  # Can be changed to external broker
+MQTT_PORT = 1883
+MQTT_TOPICS = {
+    'digital_twin_data': 'iot/digitaltwin/behavior',
+    'edge_processed_data': 'iot/edge/processed',
+    'insights': 'iot/insights/detected',
+    'commands': 'iot/commands/control',
+    'heartbeat': 'iot/system/heartbeat'
+}
+
 class SmartphoneDigitalTwin:
     """Digital twin representation of a smartphone user"""
     
@@ -45,10 +58,64 @@ class SmartphoneDigitalTwin:
         self.overuse_threshold = 8.0  # hours per day
         self.session_threshold = 2.0  # hours per session
         
+        # MQTT setup for Digital Twin
+        self.mqtt_client = mqtt.Client(client_id=f"digital_twin_{user_id}_{uuid.uuid4().hex[:8]}")
+        self.mqtt_client.on_connect = self._on_mqtt_connect
+        self.mqtt_client.on_message = self._on_mqtt_message
+        self.mqtt_connected = False
+        self._setup_mqtt_connection()
+    
+    def _setup_mqtt_connection(self):
+        """Setup MQTT connection for Digital Twin"""
+        try:
+            self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+            self.mqtt_client.loop_start()
+        except Exception as e:
+            print(f"⚠️  Digital Twin MQTT connection failed: {e}")
+    
+    def _on_mqtt_connect(self, client, userdata, flags, rc):
+        """MQTT connection callback"""
+        if rc == 0:
+            self.mqtt_connected = True
+            print(f"📱 Digital Twin MQTT connected successfully")
+            # Subscribe to commands
+            client.subscribe(MQTT_TOPICS['commands'])
+        else:
+            print(f"⚠️  Digital Twin MQTT connection failed with code {rc}")
+    
+    def _on_mqtt_message(self, client, userdata, msg):
+        """Handle incoming MQTT messages"""
+        try:
+            message = json.loads(msg.payload.decode())
+            if msg.topic == MQTT_TOPICS['commands']:
+                self._handle_command(message)
+        except Exception as e:
+            print(f"⚠️  Error processing MQTT message: {e}")
+    
+    def _handle_command(self, command: Dict):
+        """Handle commands received via MQTT"""
+        if command.get('type') == 'update_threshold':
+            self.overuse_threshold = command.get('value', self.overuse_threshold)
+            print(f"📱 Digital Twin: Updated overuse threshold to {self.overuse_threshold} hours")
+        elif command.get('type') == 'reset_patterns':
+            self.usage_patterns.clear()
+            print("📱 Digital Twin: Usage patterns reset")
+    
+    def publish_behavior_data(self, data: UserBehaviorData):
+        """Publish behavior data via MQTT"""
+        if self.mqtt_connected:
+            message = {
+                'user_id': self.user_id,
+                'timestamp': data.timestamp,
+                'data': asdict(data)
+            }
+            self.mqtt_client.publish(MQTT_TOPICS['digital_twin_data'], json.dumps(message))
+        
     def add_behavior_data(self, data: UserBehaviorData):
         """Add new behavior data to the digital twin"""
         self.behavior_history.append(data)
         self._update_patterns(data)
+        self.publish_behavior_data(data)
         
     def _update_patterns(self, data: UserBehaviorData):
         """Update internal patterns based on new data"""
@@ -168,6 +235,79 @@ class EdgeComputingLayer:
         self.wearable = WearableDevice()
         self.ambient_sensor = AmbientSensor()
         self.context_detection_active = True
+        
+        # MQTT setup for Edge Layer
+        self.mqtt_client = mqtt.Client(client_id=f"edge_layer_{uuid.uuid4().hex[:8]}")
+        self.mqtt_client.on_connect = self._on_mqtt_connect
+        self.mqtt_client.on_message = self._on_mqtt_message
+        self.mqtt_connected = False
+        self._setup_mqtt_connection()
+        
+        # Start heartbeat thread
+        self.heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self.heartbeat_thread.start()
+    
+    def _setup_mqtt_connection(self):
+        """Setup MQTT connection for Edge Layer"""
+        try:
+            self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+            self.mqtt_client.loop_start()
+        except Exception as e:
+            print(f"⚠️  Edge Layer MQTT connection failed: {e}")
+    
+    def _on_mqtt_connect(self, client, userdata, flags, rc):
+        """MQTT connection callback"""
+        if rc == 0:
+            self.mqtt_connected = True
+            print(f"🖥️  Edge Layer MQTT connected successfully")
+            # Subscribe to digital twin data
+            client.subscribe(MQTT_TOPICS['digital_twin_data'])
+        else:
+            print(f"⚠️  Edge Layer MQTT connection failed with code {rc}")
+    
+    def _on_mqtt_message(self, client, userdata, msg):
+        """Handle incoming MQTT messages"""
+        try:
+            message = json.loads(msg.payload.decode())
+            if msg.topic == MQTT_TOPICS['digital_twin_data']:
+                print(f"🔄 Edge Layer received data from Digital Twin: {message['user_id']}")
+        except Exception as e:
+            print(f"⚠️  Error processing MQTT message: {e}")
+    
+    def _heartbeat_loop(self):
+        """Send periodic heartbeat messages"""
+        while True:
+            if self.mqtt_connected:
+                heartbeat_data = {
+                    'timestamp': datetime.now().isoformat(),
+                    'edge_id': 'raspberry_pi_001',
+                    'status': 'active',
+                    'buffer_size': len(self.data_buffer),
+                    'context_detection': self.context_detection_active
+                }
+                self.mqtt_client.publish(MQTT_TOPICS['heartbeat'], json.dumps(heartbeat_data))
+            time.sleep(30)  # Send heartbeat every 30 seconds
+    
+    def publish_processed_data(self, processed_data: Dict):
+        """Publish processed data via MQTT"""
+        if self.mqtt_connected:
+            message = {
+                'edge_id': 'raspberry_pi_001',
+                'timestamp': datetime.now().isoformat(),
+                'processed_data': processed_data
+            }
+            self.mqtt_client.publish(MQTT_TOPICS['edge_processed_data'], json.dumps(message))
+    
+    def publish_insights(self, insights: List[ContextualInsight]):
+        """Publish detected insights via MQTT"""
+        if self.mqtt_connected:
+            message = {
+                'edge_id': 'raspberry_pi_001',
+                'timestamp': datetime.now().isoformat(),
+                'insights': [asdict(insight) for insight in insights],
+                'insight_count': len(insights)
+            }
+            self.mqtt_client.publish(MQTT_TOPICS['insights'], json.dumps(message))
         
     def collect_smartphone_data(self) -> UserBehaviorData:
         """Simulate smartphone data collection"""
@@ -312,10 +452,16 @@ class EdgeComputingLayer:
         # Perform context detection
         insights = self.context_detection_with_edge_ai(processed_data)
         
+        # Publish data via MQTT
+        self.publish_processed_data(processed_data)
+        if insights:
+            self.publish_insights(insights)
+        
         return {
             'processed_data': processed_data,
             'insights': [asdict(insight) for insight in insights],
-            'buffer_size': len(self.data_buffer)
+            'buffer_size': len(self.data_buffer),
+            'mqtt_status': self.mqtt_connected
         }
 
 class IoTSystemManager:
@@ -366,6 +512,10 @@ class IoTSystemManager:
         print(f"💪 Wellness Indicator: {metrics['wellness_indicator']:.2f}")
         print(f"💾 Buffer Size: {result['buffer_size']}")
         
+        # Show MQTT status
+        mqtt_status = "🟢 Connected" if result.get('mqtt_status') else "🔴 Disconnected"
+        print(f"📡 MQTT Status: {mqtt_status}")
+        
         # Show insights if any
         if insights:
             print("\n🔍 Detected Issues:")
@@ -402,6 +552,13 @@ def main():
     print("📱 Digital Twin: Smartphone User Behavior Model")
     print("🖥️  Edge Layer: Raspberry Pi Simulation")
     print("⚡ Edge AI: Real-time Context Detection")
+    print("📡 MQTT: Communication Layer for IoT Components")
+    
+    # Start simple MQTT broker for local testing
+    print("🔌 Starting local MQTT broker...")
+    from mqtt_broker import start_mqtt_broker
+    broker = start_mqtt_broker()
+    time.sleep(2)  # Give broker time to start
     
     system = IoTSystemManager()
     system.start_system()

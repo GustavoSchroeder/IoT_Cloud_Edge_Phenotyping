@@ -75,6 +75,8 @@ class SmartphoneDigitalTwin:
                 print(f"📱 Digital Twin attempting MQTT connection (attempt {attempt + 1}/{max_retries})")
                 self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
                 self.mqtt_client.loop_start()
+                # Wait a bit for the connection to establish
+                time.sleep(1)
                 return  # Connection successful
             except Exception as e:
                 if attempt < max_retries - 1:
@@ -267,6 +269,8 @@ class EdgeComputingLayer:
                 print(f"🖥️  Edge Layer attempting MQTT connection (attempt {attempt + 1}/{max_retries})")
                 self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
                 self.mqtt_client.loop_start()
+                # Wait a bit for the connection to establish
+                time.sleep(1)
                 return  # Connection successful
             except Exception as e:
                 if attempt < max_retries - 1:

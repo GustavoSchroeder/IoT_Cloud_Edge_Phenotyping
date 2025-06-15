@@ -247,6 +247,124 @@ class AmbientSensor:
             'humidity': random.uniform(30, 70)  # percentage
         }
 
+class CloudLayer:
+    """Simulates cloud-based analytics and storage layer"""
+    
+    def __init__(self):
+        self.analytics_buffer = deque(maxlen=500)  # Store more data in cloud
+        self.global_patterns = {}
+        self.cloud_insights = []
+        
+        # MQTT setup for Cloud Layer
+        self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"cloud_layer_{uuid.uuid4().hex[:8]}")
+        self.mqtt_client.on_connect = self._on_mqtt_connect
+        self.mqtt_client.on_message = self._on_mqtt_message
+        self.mqtt_connected = False
+        self._setup_mqtt_connection()
+        
+        # Start cloud analytics thread
+        self.analytics_thread = threading.Thread(target=self._cloud_analytics_loop, daemon=True)
+        self.analytics_thread.start()
+    
+    def _setup_mqtt_connection(self):
+        """Setup MQTT connection for Cloud Layer with retry logic"""
+        max_retries = 5
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"☁️  Cloud Layer attempting MQTT connection (attempt {attempt + 1}/{max_retries})")
+                self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+                self.mqtt_client.loop_start()
+                time.sleep(1)
+                return
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠️  Cloud Layer MQTT connection attempt {attempt + 1} failed: {e}, retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"⚠️  Cloud Layer MQTT connection failed after {max_retries} attempts: {e}")
+    
+    def _on_mqtt_connect(self, client, userdata, flags, rc, properties=None):
+        """MQTT connection callback"""
+        if rc == 0:
+            self.mqtt_connected = True
+            print(f"☁️  Cloud Layer MQTT connected successfully")
+            # Subscribe to edge processed data and insights
+            client.subscribe(MQTT_TOPICS['edge_processed_data'])
+            client.subscribe(MQTT_TOPICS['insights'])
+        else:
+            print(f"⚠️  Cloud Layer MQTT connection failed with code {rc}")
+    
+    def _on_mqtt_message(self, client, userdata, msg):
+        """Handle incoming MQTT messages from edge layer"""
+        try:
+            message = json.loads(msg.payload.decode())
+            if msg.topic == MQTT_TOPICS['edge_processed_data']:
+                print(f"☁️  Cloud received processed data from Edge: {message['edge_id']}")
+                self.analytics_buffer.append(message)
+            elif msg.topic == MQTT_TOPICS['insights']:
+                print(f"☁️  Cloud received insights from Edge: {len(message['insights'])} insights")
+                self.cloud_insights.extend(message['insights'])
+        except Exception as e:
+            print(f"⚠️  Cloud Layer error processing MQTT message: {e}")
+    
+    def _cloud_analytics_loop(self):
+        """Perform cloud-level analytics on collected data"""
+        while True:
+            time.sleep(15)  # Analyze every 15 seconds
+            if len(self.analytics_buffer) >= 3:  # Need sufficient data
+                self._perform_cloud_analytics()
+    
+    def _perform_cloud_analytics(self):
+        """Perform advanced cloud analytics"""
+        if not self.analytics_buffer:
+            return
+        
+        recent_data = list(self.analytics_buffer)[-10:]  # Last 10 edge reports
+        
+        # Calculate trend analytics
+        usage_trends = []
+        context_trends = []
+        
+        for data in recent_data:
+            if 'processed_data' in data and 'derived_metrics' in data['processed_data']:
+                metrics = data['processed_data']['derived_metrics']
+                usage_trends.append(metrics['usage_intensity'])
+                context_trends.append(metrics['context_score'])
+        
+        if usage_trends:
+            avg_usage = sum(usage_trends) / len(usage_trends)
+            avg_context = sum(context_trends) / len(context_trends)
+            
+            # Send cloud-level recommendations back to edge
+            cloud_recommendation = {
+                'timestamp': datetime.now().isoformat(),
+                'cloud_id': 'aws_analytics_001',
+                'trend_analysis': {
+                    'avg_usage_intensity': avg_usage,
+                    'avg_context_score': avg_context,
+                    'data_points': len(usage_trends),
+                    'recommendation': self._generate_cloud_recommendation(avg_usage, avg_context)
+                }
+            }
+            
+            # Publish cloud recommendations
+            if self.mqtt_connected:
+                self.mqtt_client.publish('iot/cloud/recommendations', json.dumps(cloud_recommendation))
+                print(f"☁️  Cloud published trend analysis: Usage {avg_usage:.2f}, Context {avg_context:.2f}")
+    
+    def _generate_cloud_recommendation(self, avg_usage, avg_context):
+        """Generate cloud-level recommendations based on trends"""
+        if avg_usage > 0.7 and avg_context < 0.3:
+            return "Critical: Consistent high usage in poor contexts detected across sessions"
+        elif avg_usage > 0.6:
+            return "Warning: Usage intensity trending upward - consider intervention"
+        elif avg_context < 0.4:
+            return "Alert: Poor context usage patterns detected - review usage timing"
+        else:
+            return "Normal: Usage patterns within acceptable ranges"
+
 class EdgeComputingLayer:
     """Simulates Raspberry Pi edge computing layer"""
     
@@ -256,6 +374,7 @@ class EdgeComputingLayer:
         self.wearable = WearableDevice()
         self.ambient_sensor = AmbientSensor()
         self.context_detection_active = True
+        self.cloud_recommendations = []
         
         # MQTT setup for Edge Layer
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"edge_layer_{uuid.uuid4().hex[:8]}")
@@ -293,8 +412,9 @@ class EdgeComputingLayer:
         if rc == 0:
             self.mqtt_connected = True
             print(f"🖥️  Edge Layer MQTT connected successfully")
-            # Subscribe to digital twin data
+            # Subscribe to digital twin data and cloud recommendations
             client.subscribe(MQTT_TOPICS['digital_twin_data'])
+            client.subscribe('iot/cloud/recommendations')
         else:
             print(f"⚠️  Edge Layer MQTT connection failed with code {rc}")
     
@@ -304,6 +424,9 @@ class EdgeComputingLayer:
             message = json.loads(msg.payload.decode())
             if msg.topic == MQTT_TOPICS['digital_twin_data']:
                 print(f"🔄 Edge Layer received data from Digital Twin: {message['user_id']}")
+            elif msg.topic == 'iot/cloud/recommendations':
+                print(f"🔄 Edge Layer received cloud recommendation: {message['trend_analysis']['recommendation']}")
+                self.cloud_recommendations.append(message)
         except Exception as e:
             print(f"⚠️  Error processing MQTT message: {e}")
     
@@ -643,6 +766,7 @@ class IoTSystemManager:
     
     def __init__(self):
         self.edge_layer = EdgeComputingLayer()
+        self.cloud_layer = CloudLayer()
         self.system_running = False
         
     def start_system(self):
@@ -650,14 +774,14 @@ class IoTSystemManager:
         print("🚀 Starting Context-Aware IoT System for Technology Overuse Prevention")
         print("=" * 70)
         print("\n🏗️  SYSTEM ARCHITECTURE:")
-        print("┌─────────────────┐    MQTT     ┌─────────────────┐")
-        print("│  Digital Twin   │◄──────────►│   Edge Layer    │")
-        print("│ (User Behavior) │   Broker    │ (Raspberry Pi)  │")
-        print("└─────────────────┘             └─────────────────┘")
-        print("         │                               │")
-        print("         ▼                               ▼")
-        print("   Behavior Data                 Context Detection")
-        print("   Pattern Analysis              Real-time Insights")
+        print("┌─────────────────┐    MQTT     ┌─────────────────┐    MQTT     ┌─────────────────┐")
+        print("│  Digital Twin   │◄──────────►│   Edge Layer    │◄──────────►│   Cloud Layer   │")
+        print("│ (User Behavior) │   Broker    │ (Raspberry Pi)  │   Broker    │ (AWS Analytics) │")
+        print("└─────────────────┘             └─────────────────┘             └─────────────────┘")
+        print("         │                               │                               │")
+        print("         ▼                               ▼                               ▼")
+        print("   Behavior Data                 Context Detection              Trend Analysis")
+        print("   Pattern Analysis              Real-time Insights            Global Patterns")
         print("")
         
         self.system_running = True
@@ -691,15 +815,19 @@ class IoTSystemManager:
         
         # Show connection architecture
         print("🔗 COMPONENT CONNECTIONS:")
-        print(f"   📱 Digital Twin → MQTT → 🖥️  Edge Layer")
+        print(f"   📱 Digital Twin → MQTT → 🖥️  Edge Layer → MQTT → ☁️  Cloud Layer")
         print(f"   Digital Twin MQTT: {'🟢 Connected' if self.edge_layer.digital_twin.mqtt_connected else '🔴 Disconnected'}")
         print(f"   Edge Layer MQTT: {'🟢 Connected' if self.edge_layer.mqtt_connected else '🔴 Disconnected'}")
+        print(f"   Cloud Layer MQTT: {'🟢 Connected' if self.cloud_layer.mqtt_connected else '🔴 Disconnected'}")
         
         # Show data flow
-        if self.edge_layer.digital_twin.mqtt_connected and self.edge_layer.mqtt_connected:
-            print("   📡 Data Flow: Digital Twin → MQTT Broker → Edge Layer ✅")
+        all_connected = (self.edge_layer.digital_twin.mqtt_connected and 
+                        self.edge_layer.mqtt_connected and 
+                        self.cloud_layer.mqtt_connected)
+        if all_connected:
+            print("   📡 Data Flow: Digital Twin → Edge Layer → Cloud Layer ✅")
         else:
-            print("   📡 Data Flow: Digital Twin ❌ MQTT Broker ❌ Edge Layer")
+            print("   📡 Data Flow: Components not fully connected ❌")
         
         # Show key metrics
         metrics = data['derived_metrics']
@@ -707,7 +835,9 @@ class IoTSystemManager:
         print(f"📱 Usage Intensity: {metrics['usage_intensity']:.2f}")
         print(f"🌍 Context Score: {metrics['context_score']:.2f}")
         print(f"💪 Wellness Indicator: {metrics['wellness_indicator']:.2f}")
-        print(f"💾 Buffer Size: {result['buffer_size']}")
+        print(f"💾 Edge Buffer Size: {result['buffer_size']}")
+        print(f"☁️  Cloud Buffer Size: {len(self.cloud_layer.analytics_buffer)}")
+        print(f"🔄 Cloud Recommendations: {len(self.edge_layer.cloud_recommendations)}")
         
         # Show insights if any
         if insights:
@@ -730,6 +860,9 @@ class IoTSystemManager:
         print(f"📊 Total behavior data points collected: {len(twin.behavior_history)}")
         print(f"📱 Apps tracked: {len(twin.usage_patterns)}")
         print(f"📅 Days with data: {len(twin.daily_stats)}")
+        print(f"☁️  Cloud analytics processed: {len(self.cloud_layer.analytics_buffer)} data points")
+        print(f"🤖 Cloud insights generated: {len(self.cloud_layer.cloud_insights)}")
+        print(f"🔄 Edge-Cloud interactions: {len(self.edge_layer.cloud_recommendations)}")
         
         if twin.usage_patterns:
             print("\n🏆 Most used apps:")
@@ -738,6 +871,11 @@ class IoTSystemManager:
             for app, stats in sorted_apps:
                 print(f"  • {app}: {stats['total']:.1f} hours total, "
                       f"{stats['avg_session']:.1f} hours avg session")
+        
+        if self.edge_layer.cloud_recommendations:
+            print("\n☁️  Latest Cloud Recommendation:")
+            latest = self.edge_layer.cloud_recommendations[-1]
+            print(f"  • {latest['trend_analysis']['recommendation']}")
 
 def main():
     """Main function to run the IoT system"""

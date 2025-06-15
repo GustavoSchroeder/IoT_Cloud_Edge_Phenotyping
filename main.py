@@ -207,14 +207,23 @@ class SmartphoneDigitalTwin:
         return sessions
     
     def _detect_late_night_usage(self, data: List[UserBehaviorData]) -> bool:
-        """Detect late-night usage patterns"""
-        late_night_count = 0
+        """Detect late-night usage patterns with more realistic thresholds"""
+        late_night_usage = 0
+        total_late_entries = 0
+        
         for entry in data:
             hour = int(entry.timestamp.split('T')[1].split(':')[0])
-            if (hour >= 23 or hour <= 6) and entry.screen_time > 0:
-                late_night_count += 1
+            if hour >= 23 or hour <= 5:  # True late night hours
+                total_late_entries += 1
+                if entry.screen_time > 0.5:  # Significant usage (30+ minutes)
+                    late_night_usage += entry.screen_time
         
-        return late_night_count > len(data) * 0.2  # More than 20% late-night usage
+        # Only flag if there's substantial late night usage, not just any usage
+        if total_late_entries == 0:
+            return False
+        
+        avg_late_usage = late_night_usage / max(total_late_entries, 1)
+        return avg_late_usage > 1.0 and late_night_usage > 2.0  # More than 1 hour average and 2+ hours total
 
 class WearableDevice:
     """Simulates wearable device data"""
@@ -334,26 +343,62 @@ class EdgeComputingLayer:
             self.mqtt_client.publish(MQTT_TOPICS['insights'], json.dumps(message))
         
     def collect_smartphone_data(self) -> UserBehaviorData:
-        """Simulate smartphone data collection"""
-        current_time = datetime.now().isoformat()
+        """Simulate smartphone data collection with realistic time-based patterns"""
+        # Use variable time to simulate different usage patterns throughout the day
+        base_time = datetime.now()
+        # Add some randomness to simulate different times of day
+        time_offset = random.randint(-12, 12)  # ±12 hours variation
+        simulated_time = base_time + timedelta(hours=time_offset)
+        current_time = simulated_time.isoformat()
         
-        # Simulate realistic app usage patterns
+        hour = simulated_time.hour
+        
+        # Time-based realistic patterns
+        if 6 <= hour <= 9:  # Morning
+            usage_multiplier = random.uniform(0.3, 0.7)
+            location_weights = {'home': 0.6, 'commute': 0.3, 'work': 0.1}
+        elif 9 <= hour <= 17:  # Work hours
+            usage_multiplier = random.uniform(0.2, 0.5)
+            location_weights = {'work': 0.7, 'home': 0.1, 'commute': 0.1, 'leisure': 0.1}
+        elif 17 <= hour <= 22:  # Evening
+            usage_multiplier = random.uniform(0.5, 1.2)
+            location_weights = {'home': 0.5, 'leisure': 0.3, 'commute': 0.2}
+        else:  # Late night/early morning
+            usage_multiplier = random.uniform(0.1, 0.4)
+            location_weights = {'home': 0.9, 'leisure': 0.1}
+        
+        # Choose location based on time
+        location = random.choices(
+            list(location_weights.keys()), 
+            weights=list(location_weights.values())
+        )[0]
+        
+        # Simulate realistic app usage patterns based on time and location
         apps = ['social_media', 'messaging', 'games', 'productivity', 'entertainment']
-        app_usage = {app: np.random.exponential(0.5) for app in apps}
+        app_usage = {}
+        for app in apps:
+            base_usage = np.random.exponential(0.3)
+            if app == 'productivity' and 9 <= hour <= 17:
+                base_usage *= 2.0  # More productivity apps during work
+            elif app in ['social_media', 'entertainment'] and (17 <= hour <= 22):
+                base_usage *= 1.5  # More entertainment in evening
+            elif app == 'games' and (22 <= hour or hour <= 2):
+                base_usage *= 0.3  # Less gaming late at night
+            app_usage[app] = base_usage * usage_multiplier
         
         return UserBehaviorData(
             timestamp=current_time,
             app_usage=app_usage,
-            location=random.choice(['home', 'work', 'commute', 'leisure']),
-            communication_count=np.random.poisson(5),
-            touch_interactions=random.randint(50, 500),
-            unlock_frequency=random.randint(10, 100),
-            battery_level=random.uniform(20, 100),
-            screen_time=np.random.exponential(0.3),  # Hours
-            typing_speed=random.uniform(20, 80),  # WPM
-            ambient_light=random.uniform(0, 1000),
-            accelerometer=[random.uniform(-1, 1) for _ in range(3)],
-            network_usage=np.random.exponential(100)  # MB
+            location=location,
+            communication_count=max(1, int(np.random.poisson(3) * usage_multiplier)),
+            touch_interactions=random.randint(int(20 * usage_multiplier), int(300 * usage_multiplier)),
+            unlock_frequency=random.randint(int(5 * usage_multiplier), int(50 * usage_multiplier)),
+            battery_level=random.uniform(15, 95),
+            screen_time=max(0.1, np.random.exponential(0.4) * usage_multiplier),
+            typing_speed=random.uniform(15, 90),
+            ambient_light=random.uniform(10, 800),
+            accelerometer=[random.uniform(-0.8, 0.8) for _ in range(3)],
+            network_usage=max(5, np.random.exponential(80) * usage_multiplier)
         )
     
     def preprocess_data(self, smartphone_data: UserBehaviorData, 
@@ -390,19 +435,31 @@ class EdgeComputingLayer:
         """Calculate contextual appropriateness score"""
         hour = int(smartphone_data.timestamp.split('T')[1].split(':')[0])
         
-        # Penalize usage during sleep hours
-        if 23 <= hour or hour <= 6:
-            time_penalty = 0.8
+        # More nuanced time-based scoring
+        if 23 <= hour or hour <= 5:  # Deep sleep hours
+            time_penalty = random.uniform(0.6, 0.9)
+        elif hour == 6 or hour == 22:  # Transition hours
+            time_penalty = random.uniform(0.2, 0.5)
         elif 7 <= hour <= 9 or 17 <= hour <= 19:  # Commute hours
-            time_penalty = 0.3
-        else:
-            time_penalty = 0.0
+            time_penalty = random.uniform(0.1, 0.4)
+        else:  # Normal hours
+            time_penalty = random.uniform(0.0, 0.2)
         
-        # Consider ambient factors
-        light_factor = min(ambient_data['light_intensity'] / 500.0, 1.0)
-        noise_factor = min(ambient_data['noise_level'] / 60.0, 1.0)
+        # Location-based context
+        location_penalty = 0.0
+        if smartphone_data.location == 'work' and hour > 18:
+            location_penalty = 0.3
+        elif smartphone_data.location == 'leisure' and 9 <= hour <= 17:
+            location_penalty = 0.2
         
-        context_score = 1.0 - (time_penalty + (1 - light_factor) * 0.2 + noise_factor * 0.1)
+        # Consider ambient factors with more variation
+        light_factor = min(ambient_data['light_intensity'] / 600.0, 1.0)
+        noise_factor = ambient_data['noise_level'] / 80.0
+        
+        # Add some randomness to prevent always same results
+        random_factor = random.uniform(-0.1, 0.1)
+        
+        context_score = 1.0 - (time_penalty + location_penalty + (1 - light_factor) * 0.15 + noise_factor * 0.1 + random_factor)
         return max(0.0, min(1.0, context_score))
     
     def _calculate_wellness_indicator(self, wearable_data: Dict) -> float:
@@ -425,37 +482,67 @@ class EdgeComputingLayer:
         pattern_insights = self.digital_twin.detect_overuse_patterns()
         insights.extend(pattern_insights)
         
-        # Real-time context analysis
+        # Real-time context analysis with dynamic thresholds
         metrics = processed_data['derived_metrics']
+        smartphone_data = processed_data['smartphone']
+        hour = int(smartphone_data['timestamp'].split('T')[1].split(':')[0])
         
-        # High usage intensity detection
-        if metrics['usage_intensity'] > 0.7:
+        # Dynamic thresholds based on time and context
+        usage_threshold = 0.8 if 9 <= hour <= 17 else 0.6  # Higher threshold during work hours
+        context_threshold = 0.4 if smartphone_data['location'] == 'work' else 0.2
+        
+        # High usage intensity detection (with variation)
+        if metrics['usage_intensity'] > usage_threshold:
+            severity = "high" if metrics['usage_intensity'] > 0.85 else "medium"
             insights.append(ContextualInsight(
                 pattern_type="high_intensity_usage",
-                severity="medium",
+                severity=severity,
                 description=f"High usage intensity detected: {metrics['usage_intensity']:.2f}",
                 recommendation="Consider taking a break from your device",
-                confidence=0.75
+                confidence=min(0.95, 0.6 + metrics['usage_intensity'] * 0.3)
             ))
         
-        # Poor context usage detection
-        if metrics['context_score'] < 0.3:
-            insights.append(ContextualInsight(
-                pattern_type="inappropriate_context",
-                severity="high",
-                description="Device usage in inappropriate context detected",
-                recommendation="Consider environmental factors and timing of device use",
-                confidence=0.8
-            ))
+        # Poor context usage detection (more nuanced)
+        if metrics['context_score'] < context_threshold:
+            # Only flag if it's truly inappropriate
+            if (hour >= 23 or hour <= 5) and metrics['usage_intensity'] > 0.3:
+                insights.append(ContextualInsight(
+                    pattern_type="inappropriate_context",
+                    severity="high",
+                    description=f"Late-night device usage detected at {hour:02d}:XX",
+                    recommendation="Consider using sleep mode and reducing evening screen time",
+                    confidence=0.8
+                ))
+            elif smartphone_data['location'] == 'work' and hour > 18:
+                insights.append(ContextualInsight(
+                    pattern_type="work_life_balance",
+                    severity="medium",
+                    description="Extended work-related device usage detected",
+                    recommendation="Try to maintain work-life boundaries",
+                    confidence=0.7
+                ))
         
-        # Wellness impact detection
-        if metrics['wellness_indicator'] < 0.4 and metrics['usage_intensity'] > 0.5:
+        # Wellness impact detection (more specific)
+        if metrics['wellness_indicator'] < 0.3 and metrics['usage_intensity'] > 0.6:
             insights.append(ContextualInsight(
                 pattern_type="wellness_impact",
                 severity="high",
                 description="Device usage may be impacting your wellness",
                 recommendation="Take a break and engage in physical activity",
                 confidence=0.85
+            ))
+        
+        # Positive feedback for good behavior
+        if (metrics['usage_intensity'] < 0.3 and 
+            metrics['context_score'] > 0.7 and 
+            metrics['wellness_indicator'] > 0.7 and 
+            random.random() < 0.3):  # 30% chance to show positive feedback
+            insights.append(ContextualInsight(
+                pattern_type="healthy_usage",
+                severity="low",
+                description="Balanced device usage detected",
+                recommendation="Keep up the good usage habits!",
+                confidence=0.9
             ))
         
         return insights

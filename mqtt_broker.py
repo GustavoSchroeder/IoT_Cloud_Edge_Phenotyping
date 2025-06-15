@@ -94,6 +94,7 @@ persistence false
     
     def _handle_mqtt_client(self, conn, addr):
         """Handle MQTT client connection with basic protocol support"""
+        import socket  # Import socket here
         try:
             conn.settimeout(30.0)  # 30 second timeout for client operations
             

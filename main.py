@@ -293,30 +293,53 @@ class CloudLayer:
             # Subscribe to edge processed data and insights
             client.subscribe(MQTT_TOPICS['edge_processed_data'])
             client.subscribe(MQTT_TOPICS['insights'])
+            client.subscribe('iot/test/simple')  # Add test topic
+            print(f"☁️  Cloud subscribed to topics: {MQTT_TOPICS['edge_processed_data']}, {MQTT_TOPICS['insights']}, iot/test/simple")
         else:
             print(f"⚠️  Cloud Layer MQTT connection failed with code {rc}")
     
     def _on_mqtt_message(self, client, userdata, msg):
         """Handle incoming MQTT messages from edge layer"""
         try:
+            print(f"☁️  Cloud Layer received MQTT message on topic: {msg.topic}")
             message = json.loads(msg.payload.decode())
             if msg.topic == MQTT_TOPICS['edge_processed_data']:
                 print(f"☁️  Cloud received processed data from Edge: {message['edge_id']}")
                 self.analytics_buffer.append(message)
                 print(f"☁️  Cloud buffer size now: {len(self.analytics_buffer)}")
+                # Immediately trigger analytics when we receive data
+                if len(self.analytics_buffer) >= 1:
+                    print(f"☁️  Triggering immediate cloud analytics")
+                    self._perform_cloud_analytics()
             elif msg.topic == MQTT_TOPICS['insights']:
                 print(f"☁️  Cloud received insights from Edge: {len(message['insights'])} insights")
                 self.cloud_insights.extend(message['insights'])
+            elif msg.topic == 'iot/test/simple':
+                print(f"☁️  Cloud received test message: {message}")
+                # Create a simple analytics buffer entry for testing
+                test_entry = {
+                    'edge_id': message['edge_id'],
+                    'timestamp': datetime.now().isoformat(),
+                    'processed_data': {
+                        'derived_metrics': {
+                            'usage_intensity': message.get('usage_intensity', 0.5),
+                            'context_score': 0.5
+                        }
+                    }
+                }
+                self.analytics_buffer.append(test_entry)
+                print(f"☁️  Test message added to buffer, size now: {len(self.analytics_buffer)}")
         except Exception as e:
             print(f"⚠️  Cloud Layer error processing MQTT message: {e}")
             print(f"⚠️  Message topic: {msg.topic}, payload: {msg.payload[:100]}")
+            print(f"⚠️  Raw payload: {msg.payload}")
     
     def _cloud_analytics_loop(self):
         """Perform cloud-level analytics on collected data"""
         while True:
-            time.sleep(10)  # Analyze every 10 seconds (faster)
-            if len(self.analytics_buffer) >= 2:  # Need less data to start (more responsive)
-                print(f"☁️  Starting cloud analytics with {len(self.analytics_buffer)} data points")
+            time.sleep(8)  # Check more frequently
+            if len(self.analytics_buffer) >= 1:  # Start with any data
+                print(f"☁️  Background cloud analytics check with {len(self.analytics_buffer)} data points")
                 self._perform_cloud_analytics()
     
     def _perform_cloud_analytics(self):
@@ -457,8 +480,19 @@ class EdgeComputingLayer:
                 'timestamp': datetime.now().isoformat(),
                 'processed_data': processed_data
             }
-            self.mqtt_client.publish(MQTT_TOPICS['edge_processed_data'], json.dumps(message))
-            print(f"🖥️  Edge published processed data to topic: {MQTT_TOPICS['edge_processed_data']}")
+            topic = MQTT_TOPICS['edge_processed_data']
+            payload = json.dumps(message)
+            result = self.mqtt_client.publish(topic, payload)
+            print(f"🖥️  Edge published processed data to topic: {topic}")
+            print(f"🖥️  Message size: {len(payload)} bytes, Status: {result.rc}")
+            
+            # Also publish directly to a simpler topic for testing
+            simple_message = {
+                'edge_id': 'raspberry_pi_001',
+                'buffer_size': len(processed_data),
+                'usage_intensity': processed_data.get('derived_metrics', {}).get('usage_intensity', 0)
+            }
+            self.mqtt_client.publish('iot/test/simple', json.dumps(simple_message))
         else:
             print(f"⚠️  Edge MQTT not connected, cannot publish data")
     

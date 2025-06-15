@@ -335,6 +335,10 @@ class CloudLayer:
                 print(f"☁️  Cloud received insights from Edge: {len(message['insights'])} insights")
                 self.cloud_insights.extend(message['insights'])
                 
+                # Generate targeted recommendations based on detected problematic behaviors
+                print(f"☁️  Analyzing insights for targeted recommendations...")
+                self._generate_behavioral_recommendations(message['insights'])
+                
             elif msg.topic == 'iot/test/simple':
                 print(f"☁️  Cloud received test message: {message}")
                 # Create a simple analytics buffer entry for testing
@@ -458,6 +462,126 @@ class CloudLayer:
             return "Alert: Poor context usage patterns detected - review usage timing"
         else:
             return "Normal: Usage patterns within acceptable ranges"
+    
+    def _generate_behavioral_recommendations(self, insights):
+        """Generate targeted recommendations based on specific behavioral insights"""
+        if not insights:
+            return
+        
+        # Analyze patterns in the insights
+        pattern_counts = {}
+        severity_counts = {'high': 0, 'medium': 0, 'low': 0}
+        
+        for insight in insights:
+            pattern_type = insight['pattern_type']
+            severity = insight['severity']
+            
+            pattern_counts[pattern_type] = pattern_counts.get(pattern_type, 0) + 1
+            severity_counts[severity] += 1
+        
+        # Generate cloud-level behavioral recommendations
+        cloud_behavioral_recommendations = []
+        
+        # Critical overuse patterns
+        if 'daily_overuse' in pattern_counts:
+            cloud_behavioral_recommendations.append({
+                'priority': 'critical',
+                'intervention': 'automated_daily_limit',
+                'action': 'Set automatic daily screen time limit to 6 hours',
+                'reason': f"Daily overuse detected {pattern_counts['daily_overuse']} times"
+            })
+        
+        # Late night usage interventions
+        if 'late_night_usage' in pattern_counts:
+            cloud_behavioral_recommendations.append({
+                'priority': 'high',
+                'intervention': 'sleep_mode_automation',
+                'action': 'Enable automatic Do Not Disturb from 10 PM to 7 AM',
+                'reason': f"Late night usage detected {pattern_counts['late_night_usage']} times"
+            })
+        
+        # Context-aware interventions
+        if 'inappropriate_context' in pattern_counts:
+            cloud_behavioral_recommendations.append({
+                'priority': 'medium',
+                'intervention': 'context_awareness',
+                'action': 'Enable location-based app restrictions and notification filtering',
+                'reason': f"Inappropriate context usage detected {pattern_counts['inappropriate_context']} times"
+            })
+        
+        # High intensity usage interventions
+        if 'high_intensity_usage' in pattern_counts:
+            cloud_behavioral_recommendations.append({
+                'priority': 'high',
+                'intervention': 'break_reminders',
+                'action': 'Set mandatory 15-minute breaks every 90 minutes of use',
+                'reason': f"High intensity usage detected {pattern_counts['high_intensity_usage']} times"
+            })
+        
+        # Long session interventions
+        if 'long_session' in pattern_counts or 'excessive_app_usage' in pattern_counts:
+            cloud_behavioral_recommendations.append({
+                'priority': 'medium',
+                'intervention': 'session_management',
+                'action': 'Implement progressive session warnings at 60, 90, and 120 minutes',
+                'reason': 'Extended usage sessions detected'
+            })
+        
+        # Wellness impact interventions
+        if 'wellness_impact' in pattern_counts:
+            cloud_behavioral_recommendations.append({
+                'priority': 'high',
+                'intervention': 'wellness_integration',
+                'action': 'Integrate with fitness apps and suggest physical activities during breaks',
+                'reason': 'Device usage impacting wellness indicators'
+            })
+        
+        # Generate overall behavioral strategy
+        total_high_severity = severity_counts['high']
+        total_issues = sum(severity_counts.values())
+        
+        if total_high_severity >= 3:
+            intervention_level = 'intensive'
+            strategy = 'Implement comprehensive digital wellness program with strict limits'
+        elif total_high_severity >= 1:
+            intervention_level = 'moderate'
+            strategy = 'Apply targeted interventions with gentle reminders'
+        else:
+            intervention_level = 'light'
+            strategy = 'Monitor usage patterns and provide awareness feedback'
+        
+        # Send comprehensive behavioral recommendation
+        behavioral_recommendation = {
+            'timestamp': datetime.now().isoformat(),
+            'cloud_id': 'aws_behavioral_analytics_001',
+            'behavioral_analysis': {
+                'total_issues_detected': total_issues,
+                'pattern_breakdown': pattern_counts,
+                'severity_distribution': severity_counts,
+                'intervention_level': intervention_level,
+                'overall_strategy': strategy,
+                'specific_interventions': cloud_behavioral_recommendations,
+                'urgency_score': min(total_high_severity * 0.3 + total_issues * 0.1, 1.0)
+            }
+        }
+        
+        # Publish behavioral recommendations via MQTT
+        if self.mqtt_connected:
+            self.mqtt_client.publish('iot/cloud/behavioral_recommendations', json.dumps(behavioral_recommendation))
+            print(f"☁️  Cloud published behavioral recommendations: {intervention_level} intervention level")
+            print(f"☁️  Recommended {len(cloud_behavioral_recommendations)} specific interventions")
+            
+            # Also send summary to edge layer
+            summary_recommendation = {
+                'timestamp': datetime.now().isoformat(),
+                'intervention_level': intervention_level,
+                'primary_concern': max(pattern_counts.items(), key=lambda x: x[1])[0] if pattern_counts else 'none',
+                'recommended_action': cloud_behavioral_recommendations[0]['action'] if cloud_behavioral_recommendations else 'Continue monitoring',
+                'urgency_score': min(total_high_severity * 0.3 + total_issues * 0.1, 1.0)
+            }
+            
+            self.mqtt_client.publish('iot/cloud/recommendations', json.dumps(summary_recommendation))
+            print(f"☁️  Cloud sent intervention summary: {summary_recommendation['primary_concern']} (urgency: {summary_recommendation['urgency_score']:.2f})")
 
 class EdgeComputingLayer:
     """Simulates Raspberry Pi edge computing layer"""
@@ -509,6 +633,7 @@ class EdgeComputingLayer:
             # Subscribe to digital twin data and cloud recommendations
             client.subscribe(MQTT_TOPICS['digital_twin_data'])
             client.subscribe('iot/cloud/recommendations')
+            client.subscribe('iot/cloud/behavioral_recommendations')
         else:
             print(f"⚠️  Edge Layer MQTT connection failed with code {rc}")
 
@@ -519,9 +644,21 @@ class EdgeComputingLayer:
             if msg.topic == MQTT_TOPICS['digital_twin_data']:
                 print(f"🔄 Edge Layer received data from Digital Twin: {message['user_id']}")
             elif msg.topic == 'iot/cloud/recommendations':
-                print(f"🔄 Edge Layer received cloud recommendation: {message['trend_analysis']['recommendation']}")
+                if 'trend_analysis' in message:
+                    print(f"🔄 Edge Layer received cloud trend recommendation: {message['trend_analysis']['recommendation']}")
+                else:
+                    print(f"🔄 Edge Layer received cloud intervention: {message.get('recommended_action', 'Unknown action')}")
                 self.cloud_recommendations.append(message)
                 print(f"🔄 Edge recommendations count now: {len(self.cloud_recommendations)}")
+            elif msg.topic == 'iot/cloud/behavioral_recommendations':
+                print(f"🔄 Edge Layer received behavioral recommendations from Cloud")
+                behavioral_analysis = message['behavioral_analysis']
+                print(f"🔄 Intervention level: {behavioral_analysis['intervention_level']}")
+                print(f"🔄 Total issues: {behavioral_analysis['total_issues_detected']}")
+                print(f"🔄 Urgency score: {behavioral_analysis['urgency_score']:.2f}")
+                if behavioral_analysis['specific_interventions']:
+                    print(f"🔄 Top intervention: {behavioral_analysis['specific_interventions'][0]['action']}")
+                self.cloud_recommendations.append(message)
         except Exception as e:
             print(f"⚠️  Error processing MQTT message: {e}")
             print(f"⚠️  Message topic: {msg.topic}, payload: {msg.payload[:100]}")

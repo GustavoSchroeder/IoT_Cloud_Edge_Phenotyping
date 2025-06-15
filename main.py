@@ -800,7 +800,7 @@ class IoTSystemManager:
                 self._display_cycle_results(result)
                 
                 # Wait before next cycle
-                time.sleep(2)
+                time.sleep(5)
                 
         except KeyboardInterrupt:
             print("\n⏹️  System stopped by user")

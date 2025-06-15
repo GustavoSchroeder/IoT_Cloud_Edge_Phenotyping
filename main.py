@@ -246,13 +246,131 @@ class AmbientSensor:
             'humidity': random.uniform(30, 70)  # percentage
         }
 
+class SmartHomeManager:
+    """Manages smart home device interactions and interventions"""
+    
+    def __init__(self):
+        self.available_devices = {
+            'alexa': {
+                'status': 'active',
+                'capabilities': ['voice_control', 'notifications', 'ambient_sound'],
+                'current_mode': 'normal'
+            },
+            'smart_bulbs': {
+                'status': 'active',
+                'capabilities': ['brightness_control', 'color_control', 'schedule'],
+                'current_mode': 'normal'
+            },
+            'smart_thermostat': {
+                'status': 'active',
+                'capabilities': ['temperature_control', 'schedule', 'presence_detection'],
+                'current_mode': 'normal'
+            }
+        }
+        self.device_states = {}
+        self.intervention_history = []
+
+    def get_device_interventions(self, usage_pattern: str, severity: str) -> List[Dict]:
+        """Generate smart home device interventions based on usage patterns"""
+        interventions = []
+        
+        if usage_pattern == 'late_night_usage':
+            interventions.extend([
+                {
+                    'device': 'smart_bulbs',
+                    'action': 'enable_night_mode',
+                    'description': 'Activate night mode with reduced blue light',
+                    'settings': {'brightness': 30, 'color_temp': 'warm'}
+                },
+                {
+                    'device': 'alexa',
+                    'action': 'enable_sleep_mode',
+                    'description': 'Activate sleep mode with ambient sounds',
+                    'settings': {'mode': 'sleep', 'ambient_sound': 'white_noise'}
+                }
+            ])
+        
+        elif usage_pattern == 'high_intensity_usage':
+            interventions.extend([
+                {
+                    'device': 'smart_bulbs',
+                    'action': 'adjust_lighting',
+                    'description': 'Adjust lighting to reduce eye strain',
+                    'settings': {'brightness': 70, 'color_temp': 'neutral'}
+                },
+                {
+                    'device': 'alexa',
+                    'action': 'schedule_break_reminder',
+                    'description': 'Set up voice reminders for breaks',
+                    'settings': {'interval': '30min', 'message': 'Time for a short break'}
+                }
+            ])
+        
+        elif usage_pattern == 'inappropriate_context':
+            interventions.extend([
+                {
+                    'device': 'alexa',
+                    'action': 'context_aware_notification',
+                    'description': 'Send voice notification about context',
+                    'settings': {'message': 'Consider your current environment'}
+                },
+                {
+                    'device': 'smart_bulbs',
+                    'action': 'attention_alert',
+                    'description': 'Use lighting to indicate attention needed',
+                    'settings': {'pattern': 'gentle_pulse', 'color': 'amber'}
+                }
+            ])
+        
+        elif usage_pattern == 'wellness_impact':
+            interventions.extend([
+                {
+                    'device': 'smart_thermostat',
+                    'action': 'optimize_environment',
+                    'description': 'Adjust temperature for better focus',
+                    'settings': {'temperature': 22, 'mode': 'comfort'}
+                },
+                {
+                    'device': 'alexa',
+                    'action': 'wellness_reminder',
+                    'description': 'Schedule wellness check-ins',
+                    'settings': {'interval': '1hour', 'message': 'Time for a wellness check'}
+                }
+            ])
+
+        return interventions
+
+    def apply_intervention(self, intervention: Dict) -> bool:
+        """Apply a smart home device intervention"""
+        try:
+            device = intervention['device']
+            if device in self.available_devices:
+                self.device_states[device] = intervention['settings']
+                self.intervention_history.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'intervention': intervention
+                })
+                return True
+        except Exception as e:
+            print(f"⚠️ Error applying smart home intervention: {e}")
+        return False
+
+    def get_intervention_summary(self) -> Dict:
+        """Get summary of applied interventions"""
+        return {
+            'total_interventions': len(self.intervention_history),
+            'active_devices': len(self.device_states),
+            'recent_interventions': self.intervention_history[-5:] if self.intervention_history else []
+        }
+
 class CloudLayer:
     """Simulates cloud-based analytics and storage layer"""
 
     def __init__(self):
-        self.analytics_buffer = deque(maxlen=500)  # Store more data in cloud
+        self.analytics_buffer = deque(maxlen=500)
         self.global_patterns = {}
         self.cloud_insights = []
+        self.smart_home = SmartHomeManager()  # Add SmartHomeManager instance
 
         # MQTT setup for Cloud Layer
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"cloud_layer_{uuid.uuid4().hex[:8]}")
@@ -499,6 +617,17 @@ class CloudLayer:
                 'action': 'Enable automatic Do Not Disturb from 10 PM to 7 AM',
                 'reason': f"Late night usage detected {pattern_counts['late_night_usage']} times"
             })
+            
+            # Add smart home interventions for late night usage
+            smart_home_interventions = self.smart_home.get_device_interventions('late_night_usage', 'high')
+            for intervention in smart_home_interventions:
+                cloud_behavioral_recommendations.append({
+                    'priority': 'high',
+                    'intervention': 'smart_home_automation',
+                    'action': f"Smart Home: {intervention['description']}",
+                    'reason': f"Late night usage detected - {intervention['device']} intervention"
+                })
+                self.smart_home.apply_intervention(intervention)
         
         # Context-aware interventions
         if 'inappropriate_context' in pattern_counts:
@@ -508,6 +637,17 @@ class CloudLayer:
                 'action': 'Enable location-based app restrictions and notification filtering',
                 'reason': f"Inappropriate context usage detected {pattern_counts['inappropriate_context']} times"
             })
+            
+            # Add smart home interventions for context awareness
+            smart_home_interventions = self.smart_home.get_device_interventions('inappropriate_context', 'medium')
+            for intervention in smart_home_interventions:
+                cloud_behavioral_recommendations.append({
+                    'priority': 'medium',
+                    'intervention': 'smart_home_automation',
+                    'action': f"Smart Home: {intervention['description']}",
+                    'reason': f"Context awareness - {intervention['device']} intervention"
+                })
+                self.smart_home.apply_intervention(intervention)
         
         # High intensity usage interventions
         if 'high_intensity_usage' in pattern_counts:
@@ -517,15 +657,17 @@ class CloudLayer:
                 'action': 'Set mandatory 15-minute breaks every 90 minutes of use',
                 'reason': f"High intensity usage detected {pattern_counts['high_intensity_usage']} times"
             })
-        
-        # Long session interventions
-        if 'long_session' in pattern_counts or 'excessive_app_usage' in pattern_counts:
-            cloud_behavioral_recommendations.append({
-                'priority': 'medium',
-                'intervention': 'session_management',
-                'action': 'Implement progressive session warnings at 60, 90, and 120 minutes',
-                'reason': 'Extended usage sessions detected'
-            })
+            
+            # Add smart home interventions for high intensity usage
+            smart_home_interventions = self.smart_home.get_device_interventions('high_intensity_usage', 'high')
+            for intervention in smart_home_interventions:
+                cloud_behavioral_recommendations.append({
+                    'priority': 'high',
+                    'intervention': 'smart_home_automation',
+                    'action': f"Smart Home: {intervention['description']}",
+                    'reason': f"High intensity usage - {intervention['device']} intervention"
+                })
+                self.smart_home.apply_intervention(intervention)
         
         # Wellness impact interventions
         if 'wellness_impact' in pattern_counts:
@@ -535,7 +677,18 @@ class CloudLayer:
                 'action': 'Integrate with fitness apps and suggest physical activities during breaks',
                 'reason': 'Device usage impacting wellness indicators'
             })
-        
+            
+            # Add smart home interventions for wellness
+            smart_home_interventions = self.smart_home.get_device_interventions('wellness_impact', 'high')
+            for intervention in smart_home_interventions:
+                cloud_behavioral_recommendations.append({
+                    'priority': 'high',
+                    'intervention': 'smart_home_automation',
+                    'action': f"Smart Home: {intervention['description']}",
+                    'reason': f"Wellness impact - {intervention['device']} intervention"
+                })
+                self.smart_home.apply_intervention(intervention)
+
         # Generate overall behavioral strategy
         total_high_severity = severity_counts['high']
         total_issues = sum(severity_counts.values())
@@ -561,7 +714,8 @@ class CloudLayer:
                 'intervention_level': intervention_level,
                 'overall_strategy': strategy,
                 'specific_interventions': cloud_behavioral_recommendations,
-                'urgency_score': min(total_high_severity * 0.3 + total_issues * 0.1, 1.0)
+                'urgency_score': min(total_high_severity * 0.3 + total_issues * 0.1, 1.0),
+                'smart_home_summary': self.smart_home.get_intervention_summary()
             }
         }
         
@@ -577,7 +731,8 @@ class CloudLayer:
                 'intervention_level': intervention_level,
                 'primary_concern': max(pattern_counts.items(), key=lambda x: x[1])[0] if pattern_counts else 'none',
                 'recommended_action': cloud_behavioral_recommendations[0]['action'] if cloud_behavioral_recommendations else 'Continue monitoring',
-                'urgency_score': min(total_high_severity * 0.3 + total_issues * 0.1, 1.0)
+                'urgency_score': min(total_high_severity * 0.3 + total_issues * 0.1, 1.0),
+                'smart_home_interventions': self.smart_home.get_intervention_summary()
             }
             
             self.mqtt_client.publish('iot/cloud/recommendations', json.dumps(summary_recommendation))
@@ -1047,8 +1202,10 @@ class IoTSystemManager:
                 self._display_cycle_results(result)
 
                 # Wait before next cycle
-                time.sleep(5)
-
+                time.sleep(12)
+                
+                print(f"---------------------------------")
+                print(f"---------------------------------")
         except KeyboardInterrupt:
             print("\n⏹️  System stopped by user")
 
@@ -1060,21 +1217,34 @@ class IoTSystemManager:
         data = result['processed_data']
         insights = result['insights']
 
-        # Show connection architecture
-        print("🔗 COMPONENT CONNECTIONS:")
-        print(f"   📱 Digital Twin → MQTT → 🖥️  Edge Layer → MQTT → ☁️  Cloud Layer")
-        print(f"   Digital Twin MQTT: {'🟢 Connected' if self.edge_layer.digital_twin.mqtt_connected else '🔴 Disconnected'}")
-        print(f"   Edge Layer MQTT: {'🟢 Connected' if self.edge_layer.mqtt_connected else '🔴 Disconnected'}")
-        print(f"   Cloud Layer MQTT: {'🟢 Connected' if self.cloud_layer.mqtt_connected else '🔴 Disconnected'}")
+        # Show MQTT connection status with more visual emphasis
+        print("\n" + "=" * 70)
+        print("🔌 MQTT CONNECTION STATUS")
+        print("=" * 70)
+        print("┌─────────────────┐    MQTT     ┌─────────────────┐    MQTT     ┌─────────────────┐")
+        print("│  Digital Twin   │◄──────────►│   Edge Layer    │◄──────────►│   Cloud Layer   │")
+        print("└─────────────────┘             └─────────────────┘             └─────────────────┘")
+        
+        # Connection status with clear indicators
+        dt_status = "🟢 Connected" if self.edge_layer.digital_twin.mqtt_connected else "🔴 Disconnected"
+        edge_status = "🟢 Connected" if self.edge_layer.mqtt_connected else "🔴 Disconnected"
+        cloud_status = "🟢 Connected" if self.cloud_layer.mqtt_connected else "🔴 Disconnected"
+        
+        print(f"\n📱 Digital Twin MQTT Status: {dt_status}")
+        print(f"🖥️  Edge Layer MQTT Status: {edge_status}")
+        print(f"☁️  Cloud Layer MQTT Status: {cloud_status}")
 
-        # Show data flow
+        # Show data flow with visual indicators
         all_connected = (self.edge_layer.digital_twin.mqtt_connected and 
                         self.edge_layer.mqtt_connected and 
                         self.cloud_layer.mqtt_connected)
+        print("\n📡 DATA FLOW STATUS:")
         if all_connected:
-            print("   📡 Data Flow: Digital Twin → Edge Layer → Cloud Layer ✅")
+            print("✅ Digital Twin → Edge Layer → Cloud Layer: FULLY CONNECTED")
+            print("   Data flowing through all components")
         else:
-            print("   📡 Data Flow: Components not fully connected ❌")
+            print("❌ Data Flow: PARTIALLY CONNECTED")
+            print("   Some components are not connected")
 
         # Show key metrics
         metrics = data['derived_metrics']
@@ -1084,18 +1254,48 @@ class IoTSystemManager:
         print(f"💪 Wellness Indicator: {metrics['wellness_indicator']:.2f}")
         print(f"💾 Edge Buffer Size: {result['buffer_size']}")
         print(f"☁️  Cloud Buffer Size: {len(self.cloud_layer.analytics_buffer)}")
-        print(f"🔄 Cloud Recommendations: {len(self.edge_layer.cloud_recommendations)}")
+
+        # Show cloud recommendations with more emphasis
+        if self.edge_layer.cloud_recommendations:
+            print("\n" + "=" * 70)
+            print("☁️ CLOUD INTERVENTIONS & RECOMMENDATIONS")
+            print("=" * 70)
+            
+            # Get the latest recommendation
+            latest = self.edge_layer.cloud_recommendations[-1]
+            
+            if 'behavioral_analysis' in latest:
+                # Show behavioral analysis details
+                analysis = latest['behavioral_analysis']
+                print(f"\n🔍 Intervention Level: {analysis['intervention_level'].upper()}")
+                print(f"📊 Total Issues Detected: {analysis['total_issues_detected']}")
+                print(f"⚠️  Urgency Score: {analysis['urgency_score']:.2f}")
+                
+                if analysis['specific_interventions']:
+                    print("\n🎯 Specific Interventions:")
+                    for intervention in analysis['specific_interventions']:
+                        print(f"\n  • Priority: {intervention['priority'].upper()}")
+                        print(f"    Action: {intervention['action']}")
+                        print(f"    Reason: {intervention['reason']}")
+            else:
+                # Show simple recommendation
+                print(f"\n📝 Latest Cloud Recommendation:")
+                print(f"   {latest.get('trend_analysis', {}).get('recommendation', 'No recommendation available')}")
 
         # Show insights if any
         if insights:
-            print("\n🔍 Detected Issues:")
+            print("\n" + "=" * 70)
+            print("🔍 DETECTED BEHAVIORAL PATTERNS")
+            print("=" * 70)
             for insight in insights:
                 severity_emoji = {"low": "🟢", "medium": "🟡", "high": "🔴"}
                 emoji = severity_emoji.get(insight['severity'], "⚪")
-                print(f"  {emoji} {insight['pattern_type']}: {insight['description']}")
-                print(f"     💡 {insight['recommendation']}")
+                print(f"\n{emoji} {insight['pattern_type'].upper()}")
+                print(f"   Description: {insight['description']}")
+                print(f"   Recommendation: {insight['recommendation']}")
+                print(f"   Confidence: {insight['confidence']:.2f}")
         else:
-            print("✅ No overuse patterns detected")
+            print("\n✅ No behavioral patterns requiring intervention detected")
 
     def _display_system_summary(self):
         """Display system summary"""
@@ -1119,13 +1319,109 @@ class IoTSystemManager:
                 print(f"  • {app}: {stats['total']:.1f} hours total, "
                       f"{stats['avg_session']:.1f} hours avg session")
 
+        # Add detailed intervention summary
+        print("\n" + "=" * 70)
+        print("🎯 INTERVENTION SUMMARY")
+        print("=" * 70)
+
+        # Edge Layer Interventions
+        print("\n🖥️  EDGE LAYER INTERVENTIONS:")
+        edge_insights = []
+        for data in self.edge_layer.data_buffer:
+            if 'insights' in data:
+                edge_insights.extend(data['insights'])
+        
+        if edge_insights:
+            # Group insights by pattern type
+            pattern_groups = {}
+            for insight in edge_insights:
+                pattern = insight['pattern_type']
+                if pattern not in pattern_groups:
+                    pattern_groups[pattern] = []
+                pattern_groups[pattern].append(insight)
+            
+            # Display grouped insights
+            for pattern, insights in pattern_groups.items():
+                severity_counts = {'high': 0, 'medium': 0, 'low': 0}
+                for insight in insights:
+                    severity_counts[insight['severity']] += 1
+                
+                print(f"\n  • {pattern.upper()}:")
+                print(f"    - High severity: {severity_counts['high']}")
+                print(f"    - Medium severity: {severity_counts['medium']}")
+                print(f"    - Low severity: {severity_counts['low']}")
+                if insights:
+                    print(f"    - Latest recommendation: {insights[-1]['recommendation']}")
+        else:
+            print("  No edge interventions recorded")
+
+        # Cloud Layer Interventions
+        print("\n☁️  CLOUD LAYER INTERVENTIONS:")
         if self.edge_layer.cloud_recommendations:
-            print("\n☁️  Latest Cloud Recommendation:")
-            latest = self.edge_layer.cloud_recommendations[-1]
-            print(f"  • {latest['trend_analysis']['recommendation']}")
+            # Group recommendations by type
+            intervention_types = {}
+            for rec in self.edge_layer.cloud_recommendations:
+                if 'behavioral_analysis' in rec:
+                    analysis = rec['behavioral_analysis']
+                    intervention_level = analysis['intervention_level']
+                    if intervention_level not in intervention_types:
+                        intervention_types[intervention_level] = {
+                            'count': 0,
+                            'total_issues': 0,
+                            'interventions': []
+                        }
+                    intervention_types[intervention_level]['count'] += 1
+                    intervention_types[intervention_level]['total_issues'] += analysis['total_issues_detected']
+                    if analysis['specific_interventions']:
+                        intervention_types[intervention_level]['interventions'].extend(
+                            analysis['specific_interventions']
+                        )
+
+            # Display intervention summary
+            for level, data in intervention_types.items():
+                print(f"\n  • {level.upper()} INTERVENTION LEVEL:")
+                print(f"    - Times triggered: {data['count']}")
+                print(f"    - Total issues addressed: {data['total_issues']}")
+                if data['interventions']:
+                    print("    - Key interventions:")
+                    # Get unique interventions
+                    unique_interventions = {}
+                    for intervention in data['interventions']:
+                        key = f"{intervention['priority']}:{intervention['action']}"
+                        if key not in unique_interventions:
+                            unique_interventions[key] = intervention
+                    
+                    for intervention in unique_interventions.values():
+                        print(f"      * [{intervention['priority'].upper()}] {intervention['action']}")
+        else:
+            print("  No cloud interventions recorded")
+
+        # Smart Home Interventions
+        print("\n🏠 SMART HOME INTERVENTIONS:")
+        smart_home_summary = self.cloud_layer.smart_home.get_intervention_summary()
+        print(f"  • Total Smart Home Interventions: {smart_home_summary['total_interventions']}")
+        print(f"  • Active Smart Devices: {smart_home_summary['active_devices']}")
+        
+        if smart_home_summary['recent_interventions']:
+            print("\n  • Recent Smart Home Actions:")
+            for intervention in smart_home_summary['recent_interventions']:
+                action = intervention['intervention']
+                print(f"    - {action['device'].upper()}: {action['description']}")
+                print(f"      Settings: {action['settings']}")
+
+        # Overall Intervention Statistics
+        print("\n📊 OVERALL INTERVENTION STATISTICS:")
+        total_edge_insights = len(edge_insights)
+        total_cloud_recommendations = len(self.edge_layer.cloud_recommendations)
+        print(f"  • Total Edge Layer Insights: {total_edge_insights}")
+        print(f"  • Total Cloud Layer Recommendations: {total_cloud_recommendations}")
+        print(f"  • Total Smart Home Interventions: {smart_home_summary['total_interventions']}")
+        
+        if total_edge_insights > 0 and total_cloud_recommendations > 0:
+            print(f"  • Average Insights per Cloud Recommendation: {total_edge_insights/total_cloud_recommendations:.1f}")
 
 def main():
-    """Main function to run the IoT system"""
+    # Main function to run the IoT system
     print("🔧 Initializing Context-Aware IoT System...")
     print("📱 Digital Twin: Smartphone User Behavior Model")
     print("🖥️  Edge Layer: Raspberry Pi Simulation")

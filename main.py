@@ -221,7 +221,7 @@ class WearableDevice:
     
     def generate_data(self) -> Dict[str, Any]:
         return {
-            'heart_rate': random.randint(60, 100),
+            'heart_rate': random.randint(60, 120),
             'stress_level': random.uniform(0, 1),
             'activity_level': random.choice(['sedentary', 'light', 'moderate', 'vigorous']),
             'sleep_quality': random.uniform(0, 1) if random.random() < 0.1 else None

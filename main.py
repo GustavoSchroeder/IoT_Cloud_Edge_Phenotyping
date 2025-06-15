@@ -285,7 +285,7 @@ class CloudLayer:
                 else:
                     print(f"⚠️  Cloud Layer MQTT connection failed after {max_retries} attempts: {e}")
 
-    def _on_mqtt_subscribe(self, client, userdata, mid, granted_qos):
+    def _on_mqtt_subscribe(self, client, userdata, mid, granted_qos, properties=None):
         """MQTT subscription callback"""
         print(f"☁️  Cloud Layer subscription confirmed: mid={mid}, qos={granted_qos}")
 

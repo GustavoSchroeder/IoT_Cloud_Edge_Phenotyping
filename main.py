@@ -605,7 +605,7 @@ class CloudLayer:
             cloud_behavioral_recommendations.append({
                 'priority': 'critical',
                 'intervention': 'automated_daily_limit',
-                'action': 'Set automatic daily screen time limit to 6 hours',
+                'action': 'Set automatic daily screen time limit to 4 hours',
                 'reason': f"Daily overuse detected {pattern_counts['daily_overuse']} times"
             })
         

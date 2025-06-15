@@ -303,17 +303,20 @@ class CloudLayer:
             if msg.topic == MQTT_TOPICS['edge_processed_data']:
                 print(f"☁️  Cloud received processed data from Edge: {message['edge_id']}")
                 self.analytics_buffer.append(message)
+                print(f"☁️  Cloud buffer size now: {len(self.analytics_buffer)}")
             elif msg.topic == MQTT_TOPICS['insights']:
                 print(f"☁️  Cloud received insights from Edge: {len(message['insights'])} insights")
                 self.cloud_insights.extend(message['insights'])
         except Exception as e:
             print(f"⚠️  Cloud Layer error processing MQTT message: {e}")
+            print(f"⚠️  Message topic: {msg.topic}, payload: {msg.payload[:100]}")
     
     def _cloud_analytics_loop(self):
         """Perform cloud-level analytics on collected data"""
         while True:
-            time.sleep(15)  # Analyze every 15 seconds
-            if len(self.analytics_buffer) >= 3:  # Need sufficient data
+            time.sleep(10)  # Analyze every 10 seconds (faster)
+            if len(self.analytics_buffer) >= 2:  # Need less data to start (more responsive)
+                print(f"☁️  Starting cloud analytics with {len(self.analytics_buffer)} data points")
                 self._perform_cloud_analytics()
     
     def _perform_cloud_analytics(self):
@@ -427,8 +430,10 @@ class EdgeComputingLayer:
             elif msg.topic == 'iot/cloud/recommendations':
                 print(f"🔄 Edge Layer received cloud recommendation: {message['trend_analysis']['recommendation']}")
                 self.cloud_recommendations.append(message)
+                print(f"🔄 Edge recommendations count now: {len(self.cloud_recommendations)}")
         except Exception as e:
             print(f"⚠️  Error processing MQTT message: {e}")
+            print(f"⚠️  Message topic: {msg.topic}, payload: {msg.payload[:100]}")
     
     def _heartbeat_loop(self):
         """Send periodic heartbeat messages"""
@@ -453,6 +458,9 @@ class EdgeComputingLayer:
                 'processed_data': processed_data
             }
             self.mqtt_client.publish(MQTT_TOPICS['edge_processed_data'], json.dumps(message))
+            print(f"🖥️  Edge published processed data to topic: {MQTT_TOPICS['edge_processed_data']}")
+        else:
+            print(f"⚠️  Edge MQTT not connected, cannot publish data")
     
     def publish_insights(self, insights: List[ContextualInsight]):
         """Publish detected insights via MQTT"""

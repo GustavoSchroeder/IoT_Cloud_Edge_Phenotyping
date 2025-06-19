@@ -35,9 +35,9 @@ class ContextualInsight:
     recommendation: str
     confidence: float
 
-# MQTT Configuration
-MQTT_BROKER = "127.0.0.1"  # Can be changed to external broker
-MQTT_PORT = 1883
+# MQTT CONFIGURATION
+MQTT_BROKER = "127.0.0.1"  # Local broker - Can be changed to external broker
+MQTT_PORT = 1883 # Default port for MQTT -
 MQTT_TOPICS = {
     'digital_twin_data': 'iot/digitaltwin/behavior',
     'edge_processed_data': 'iot/edge/processed',
@@ -51,11 +51,11 @@ class SmartphoneDigitalTwin:
 
     def __init__(self, user_id: str):
         self.user_id = user_id
-        self.behavior_history = deque(maxlen=1000)  # Keep last 1000 data points
+        self.behavior_history = deque(maxlen=5000)  # Keep last x data points
         self.usage_patterns = {}
         self.daily_stats = defaultdict(list)
-        self.overuse_threshold = 8.0  # hours per day
-        self.session_threshold = 2.0  # hours per session
+        self.overuse_threshold = 5.0  # hours per day
+        self.session_threshold = 1.0  # hours per session
 
         # MQTT setup for Digital Twin
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"digital_twin_{user_id}_{uuid.uuid4().hex[:8]}")
@@ -134,7 +134,7 @@ class SmartphoneDigitalTwin:
         date = data.timestamp.split('T')[0]
         self.daily_stats[date].append(data.screen_time)
 
-        # App usage patterns
+        # Smartphone app use pattern
         for app, usage in data.app_usage.items():
             if app not in self.usage_patterns:
                 self.usage_patterns[app] = {'total': 0, 'sessions': 0, 'avg_session': 0}
@@ -153,7 +153,7 @@ class SmartphoneDigitalTwin:
 
         recent_data = list(self.behavior_history)[-50:]  # Last 50 data points
 
-        # Analyze daily screen time
+        # Analyze screen time daily
         today = datetime.now().strftime('%Y-%m-%d')
         if today in self.daily_stats:
             daily_total = sum(self.daily_stats[today])
@@ -370,7 +370,7 @@ class CloudLayer:
         self.analytics_buffer = deque(maxlen=500)
         self.global_patterns = {}
         self.cloud_insights = []
-        self.smart_home = SmartHomeManager()  # Add SmartHomeManager instance
+        self.smart_home = SmartHomeManager()  # Add newq SmartHomeManager instance
 
         # MQTT setup for Cloud Layer
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"cloud_layer_{uuid.uuid4().hex[:8]}")
@@ -437,7 +437,7 @@ class CloudLayer:
             
             # Add raw message debugging
             raw_payload = msg.payload.decode()
-            print(f"☁️  Raw message: {raw_payload[:200]}...")
+            # print(f"☁️  Raw message: {raw_payload[:200]}...")
             
             message = json.loads(raw_payload)
             
@@ -748,6 +748,7 @@ class EdgeComputingLayer:
         self.ambient_sensor = AmbientSensor()
         self.context_detection_active = True
         self.cloud_recommendations = []
+        self.simulated_day = datetime.now().date()  # Track simulated day
 
         # MQTT setup for Edge Layer
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"edge_layer_{uuid.uuid4().hex[:8]}")
@@ -868,78 +869,73 @@ class EdgeComputingLayer:
             self.mqtt_client.publish(MQTT_TOPICS['insights'], json.dumps(message))
 
     def collect_smartphone_data(self) -> UserBehaviorData:
-        """Simulate smartphone data collection with more varied usage patterns for better overuse detection"""
-        # Use variable time to simulate different usage patterns throughout the day
-        base_time = datetime.now()
-        # Add some randomness to simulate different times of day
-        time_offset = random.randint(-12, 12)  # ±12 hours variation
-        simulated_time = base_time + timedelta(hours=time_offset)
+        """Simulate a full day's smartphone data with realistic app usage patterns."""
+        # Use the simulated day for the timestamp
+        simulated_time = datetime.combine(self.simulated_day, datetime.min.time())
         current_time = simulated_time.isoformat()
+        weekday = simulated_time.weekday()  # 0=Monday, 6=Sunday
+        is_weekend = weekday >= 5
 
-        hour = simulated_time.hour
+        # App usage pattern weights
+        apps = ['social_media', 'messaging', 'games', 'productivity', 'entertainment']
+        app_weights = {
+            'social_media': 3 if is_weekend else 2,
+            'messaging': 2,
+            'games': 2 if is_weekend else 1.2,
+            'productivity': 1 if is_weekend else 3,
+            'entertainment': 3 if is_weekend else 1.5
+        }
+        total_weight = sum(app_weights[app] for app in apps)
 
-        # Create more extreme usage patterns to trigger overuse detection
-        usage_pattern = random.choice(['light', 'moderate', 'heavy', 'extreme'])
+        # Distribute up to 24 hours among apps
+        total_app_time = random.uniform(6, 14) if is_weekend else random.uniform(5, 12)  # realistic total app time
+        app_usage = {}
+        remaining_time = total_app_time
+        for i, app in enumerate(apps):
+            if i == len(apps) - 1:
+                usage = max(0, remaining_time)  # assign the rest to the last app
+            else:
+                max_for_app = min(remaining_time, total_app_time * app_weights[app] / total_weight * random.uniform(0.7, 1.3))
+                usage = max(0, min(max_for_app, remaining_time))
+                remaining_time -= usage
+            app_usage[app] = usage
 
-        # Time-based realistic patterns with higher usage multipliers
-        if 6 <= hour <= 9:  # Morning
-            base_multiplier = random.uniform(0.5, 1.2)
-            location_weights = {'home': 0.6, 'commute': 0.3, 'work': 0.1}
-        elif 9 <= hour <= 17:  # Work hours
-            base_multiplier = random.uniform(0.4, 0.9)
-            location_weights = {'work': 0.7, 'home': 0.1, 'commute': 0.1, 'leisure': 0.1}
-        elif 17 <= hour <= 22:  # Evening - prime time for overuse
-            base_multiplier = random.uniform(0.8, 2.5)
-            location_weights = {'home': 0.5, 'leisure': 0.3, 'commute': 0.2}
-        else:  # Late night/early morning - should trigger late night usage
-            base_multiplier = random.uniform(0.3, 1.5)  # Increased for late night overuse
-            location_weights = {'home': 0.9, 'leisure': 0.1}
+        # Screen time: sum of app usage + a small random non-app time, capped at 24
+        non_app_time = random.uniform(0.2, 1.5)  # e.g., notifications, lock screen
+        screen_time = min(24.0, sum(app_usage.values()) + non_app_time)
 
-        # Apply usage pattern multiplier
-        pattern_multipliers = {'light': 0.5, 'moderate': 1.0, 'heavy': 2.0, 'extreme': 3.5}
-        usage_multiplier = base_multiplier * pattern_multipliers[usage_pattern]
-
-        # Choose location based on time
+        # Location: more likely 'home' on weekends, 'work' on weekdays
         location = random.choices(
-            list(location_weights.keys()), 
-            weights=list(location_weights.values())
+            ['home', 'work', 'leisure', 'commute'],
+            weights=[0.7, 0.1, 0.15, 0.05] if is_weekend else [0.4, 0.4, 0.1, 0.1]
         )[0]
 
-        # Simulate more intense app usage patterns
-        apps = ['social_media', 'messaging', 'games', 'productivity', 'entertainment']
-        app_usage = {}
-        for app in apps:
-            base_usage = np.random.exponential(0.8)  # Increased base usage
-            if app == 'productivity' and 9 <= hour <= 17:
-                base_usage *= 2.5  # More productivity apps during work
-            elif app in ['social_media', 'entertainment'] and (17 <= hour <= 22):
-                base_usage *= 2.0  # Much more entertainment in evening
-            elif app == 'games' and (22 <= hour or hour <= 2):
-                base_usage *= 1.5  # Some late night gaming
-            elif app == 'social_media' and (22 <= hour or hour <= 2):
-                base_usage *= 2.0  # Late night social media scrolling
-            app_usage[app] = base_usage * usage_multiplier
+        # Other metrics scaled to daily realistic ranges
+        communication_count = random.randint(10, 60) if is_weekend else random.randint(20, 80)
+        touch_interactions = random.randint(800, 3500)
+        unlock_frequency = random.randint(30, 120)
+        battery_level = random.uniform(15, 95)
+        typing_speed = random.uniform(20, 80)
+        ambient_light = random.uniform(10, 800)
+        accelerometer = [random.uniform(-0.8, 0.8) for _ in range(3)]
+        network_usage = random.uniform(100, 2000)  # MB per day
 
-        # Generate higher screen time values
-        screen_time_base = np.random.exponential(1.2) * usage_multiplier  # Increased base screen time
-        if usage_pattern == 'extreme':
-            screen_time_base *= 2.0
-        elif usage_pattern == 'heavy':
-            screen_time_base *= 1.5
+        # Increment simulated day for next cycle
+        self.simulated_day += timedelta(days=1)
 
         return UserBehaviorData(
             timestamp=current_time,
             app_usage=app_usage,
             location=location,
-            communication_count=max(1, int(np.random.poisson(8) * usage_multiplier)),  # Increased
-            touch_interactions=random.randint(int(100 * usage_multiplier), int(800 * usage_multiplier)),  # Much higher
-            unlock_frequency=random.randint(int(20 * usage_multiplier), int(150 * usage_multiplier)),  # Higher
-            battery_level=random.uniform(15, 95),
-            screen_time=max(0.1, screen_time_base),
-            typing_speed=random.uniform(15, 90),
-            ambient_light=random.uniform(10, 800),
-            accelerometer=[random.uniform(-0.8, 0.8) for _ in range(3)],
-            network_usage=max(5, np.random.exponential(150) * usage_multiplier)  # Increased
+            communication_count=communication_count,
+            touch_interactions=touch_interactions,
+            unlock_frequency=unlock_frequency,
+            battery_level=battery_level,
+            screen_time=screen_time,
+            typing_speed=typing_speed,
+            ambient_light=ambient_light,
+            accelerometer=accelerometer,
+            network_usage=network_usage
         )
 
     def preprocess_data(self, smartphone_data: UserBehaviorData, 
@@ -1145,11 +1141,14 @@ class EdgeComputingLayer:
         # Preprocess data
         processed_data = self.preprocess_data(smartphone_data, wearable_data, ambient_data)
 
-        # Store in buffer (temporary storage)
-        self.data_buffer.append(processed_data)
-
         # Perform context detection
         insights = self.context_detection_with_edge_ai(processed_data)
+
+        # Store in buffer (temporary storage) with both processed_data and insights
+        self.data_buffer.append({
+            'processed_data': processed_data,
+            'insights': [asdict(insight) for insight in insights]
+        })
 
         # Publish data via MQTT
         self.publish_processed_data(processed_data)
@@ -1218,12 +1217,12 @@ class IoTSystemManager:
         insights = result['insights']
 
         # Show MQTT connection status with more visual emphasis
-        print("\n" + "=" * 70)
-        print("🔌 MQTT CONNECTION STATUS")
-        print("=" * 70)
-        print("┌─────────────────┐    MQTT     ┌─────────────────┐    MQTT     ┌─────────────────┐")
-        print("│  Digital Twin   │◄──────────►│   Edge Layer    │◄──────────►│   Cloud Layer   │")
-        print("└─────────────────┘             └─────────────────┘             └─────────────────┘")
+        #print("\n" + "=" * 70)
+        #print("🔌 MQTT CONNECTION STATUS")
+       # print("=" * 70)
+       # print("┌─────────────────┐    MQTT     ┌─────────────────┐    MQTT     ┌─────────────────┐")
+       # print("│  Digital Twin   │◄──────────►│   Edge Layer    │◄──────────►│   Cloud Layer   │")
+       # print("└─────────────────┘             └─────────────────┘             └─────────────────┘")
         
         # Connection status with clear indicators
         dt_status = "🟢 Connected" if self.edge_layer.digital_twin.mqtt_connected else "🔴 Disconnected"
@@ -1240,8 +1239,8 @@ class IoTSystemManager:
                         self.cloud_layer.mqtt_connected)
         print("\n📡 DATA FLOW STATUS:")
         if all_connected:
-            print("✅ Digital Twin → Edge Layer → Cloud Layer: FULLY CONNECTED")
-            print("   Data flowing through all components")
+            print("✅ Digital Twin → Edge Layer → Cloud Layer: CONNECTED")
+            #print("   Data flowing through all components")
         else:
             print("❌ Data Flow: PARTIALLY CONNECTED")
             print("   Some components are not connected")

@@ -434,6 +434,7 @@ class CloudLayer:
         """Handle incoming MQTT messages from edge layer"""
         try:
             print(f"☁️  Cloud Layer received MQTT message on topic: {msg.topic}, payload size: {len(msg.payload)}")
+            time.sleep(0.6)
             
             # Add raw message debugging
             raw_payload = msg.payload.decode()
@@ -569,6 +570,7 @@ class CloudLayer:
             if self.mqtt_connected:
                 self.mqtt_client.publish('iot/cloud/recommendations', json.dumps(cloud_recommendation))
                 print(f"☁️  Cloud published trend analysis: Usage {avg_usage:.2f}, Context {avg_context:.2f}")
+                time.sleep(0.5)
 
     def _generate_cloud_recommendation(self, avg_usage, avg_context):
         """Generate cloud-level recommendations based on trends"""
@@ -1191,8 +1193,15 @@ class IoTSystemManager:
         try:
             while self.system_running and cycle_count < 20:  # Run 20 cycles for demo
                 cycle_count += 1
-                print(f"\n📊 Processing Cycle #{cycle_count}")
-                print("-" * 40)
+                
+                # Get the current simulated day for display
+                current_simulated_day = self.edge_layer.simulated_day
+                day_name = current_simulated_day.strftime('%A')  # Monday, Tuesday, etc.
+                date_str = current_simulated_day.strftime('%B %d, %Y')  # January 15, 2024
+                
+                print(f"\n📊 Processing Cycle #{cycle_count} - {day_name}, {date_str}")
+                print("-" * 60)
+                time.sleep(5) #wait for 5 seconds
 
                 # Run edge processing
                 result = self.edge_layer.run_edge_processing_cycle()
@@ -1293,6 +1302,7 @@ class IoTSystemManager:
                 print(f"   Description: {insight['description']}")
                 print(f"   Recommendation: {insight['recommendation']}")
                 print(f"   Confidence: {insight['confidence']:.2f}")
+                time.sleep(0.5)
         else:
             print("\n✅ No behavioral patterns requiring intervention detected")
 

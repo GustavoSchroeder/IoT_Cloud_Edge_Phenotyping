@@ -1,0 +1,33 @@
+{
+  "report_timestamp": "2025-06-28T17:45:27.730482",
+  "monitoring_duration": 0.08361388027777777,
+  "system_health": {
+    "current_status": "critical",
+    "health_score": 0.706837986012335,
+    "overall_uptime": 0.11068527738267336,
+    "component_failures": 0,
+    "error_rate": 0.0,
+    "avg_response_time": 0.0,
+    "data_loss_rate": 0.0,
+    "connection_stability": 0.2916666666666667
+  },
+  "component_health": {
+    "timestamp": "2025-06-28T17:45:27.730506",
+    "system_overview": {
+      "total_components": 4,
+      "healthy_components": 0,
+      "degraded_components": 0,
+      "failed_components": 0
+    },
+    "component_details": {}
+  },
+  "error_analysis": {
+    "total_errors": 0,
+    "recent_errors": 0,
+    "error_by_component": {},
+    "most_common_errors": []
+  },
+  "recommendations": [
+    "\u2705 System health is optimal - no immediate action required"
+  ]
+}

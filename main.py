@@ -12,9 +12,9 @@ import uuid
 
 @dataclass
 class UserBehaviorData:
-    """Data structure for user behavior tracking"""
+    """Data Structure for user behavior tracking - digital phenotyping"""
     timestamp: str
-    app_usage: Dict[str, float]  # app_name: minutes_used
+    app_usage: Dict[str, float]  # dictionary app_name: minutes_used
     location: str
     communication_count: int
     touch_interactions: int
@@ -54,10 +54,10 @@ class SmartphoneDigitalTwin:
         self.behavior_history = deque(maxlen=5000)  # Keep last x data points
         self.usage_patterns = {}
         self.daily_stats = defaultdict(list)
-        self.overuse_threshold = 5.0  # hours per day
-        self.session_threshold = 1.0  # hours per session
+        self.overuse_threshold = 5.0  # limithours per day
+        self.session_threshold = 1.0  # limithours per session
 
-        # MQTT setup for Digital Twin
+        # MQTT setup for mock Digital Twin
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"digital_twin_{user_id}_{uuid.uuid4().hex[:8]}")
         self.mqtt_client.on_connect = self._on_mqtt_connect
         self.mqtt_client.on_message = self._on_mqtt_message
@@ -113,7 +113,7 @@ class SmartphoneDigitalTwin:
             print("📱 Digital Twin: Usage patterns reset")
 
     def publish_behavior_data(self, data: UserBehaviorData):
-        """Publish behavior data via MQTT"""
+        """Publish behavior data using MQTT"""
         if self.mqtt_connected:
             message = {
                 'user_id': self.user_id,
@@ -153,7 +153,7 @@ class SmartphoneDigitalTwin:
 
         recent_data = list(self.behavior_history)[-50:]  # Last 50 data points
 
-        # Analyze screen time daily
+        # Analyze screen time
         today = datetime.now().strftime('%Y-%m-%d')
         if today in self.daily_stats:
             daily_total = sum(self.daily_stats[today])
@@ -163,7 +163,7 @@ class SmartphoneDigitalTwin:
                     severity="high" if daily_total > 10 else "medium",
                     description=f"Daily screen time: {daily_total:.1f} hours exceeds recommended limit",
                     recommendation="Take regular breaks and set app time limits",
-                    confidence=0.9
+                    confidence=0.9 #example placeholder for ai
                 ))
 
         # Analyze session patterns
@@ -174,7 +174,7 @@ class SmartphoneDigitalTwin:
                 severity="medium",
                 description=f"Detected {len(continuous_sessions)} extended usage sessions",
                 recommendation="Set session reminders and take breaks every hour",
-                confidence=0.8
+                confidence=0.8 #example placeholder for ai
             ))
 
         # Analyze late-night usage
@@ -185,7 +185,7 @@ class SmartphoneDigitalTwin:
                 severity="high",
                 description="Excessive late-night device usage detected",
                 recommendation="Enable sleep mode and avoid screens before bedtime",
-                confidence=0.85
+                confidence=0.85 #example placeholder for ai
             ))
 
         return insights
@@ -1056,7 +1056,7 @@ class EdgeComputingLayer:
                     severity="high",
                     description=f"Device usage in inappropriate context detected",
                     recommendation="Consider environmental factors and timing of device use",
-                    confidence=0.8
+                    confidence=0.8 #example placeholder for ai
                 ))
             elif smartphone_data['location'] == 'work' and hour > 17:  # Earlier work boundary
                 insights.append(ContextualInsight(
@@ -1064,7 +1064,7 @@ class EdgeComputingLayer:
                     severity="medium",
                     description="Extended work-related device usage detected",
                     recommendation="Try to maintain work-life boundaries",
-                    confidence=0.7
+                    confidence=0.7 #example placeholder for ai
                 ))
             elif metrics['context_score'] < 0.3:  # Very low context score
                 insights.append(ContextualInsight(
@@ -1072,7 +1072,7 @@ class EdgeComputingLayer:
                     severity="medium",
                     description="Device usage in inappropriate context detected",
                     recommendation="Consider environmental factors and timing of device use",
-                    confidence=0.75
+                    confidence=0.75 #example placeholder for ai
                 ))
 
         # Wellness impact detection (more specific)
@@ -1082,7 +1082,7 @@ class EdgeComputingLayer:
                 severity="high",
                 description="Device usage may be impacting your wellness",
                 recommendation="Take a break and engage in physical activity",
-                confidence=0.85
+                confidence=0.85 #example placeholder for ai
             ))
 
         # Add screen time overuse detection
@@ -1093,7 +1093,7 @@ class EdgeComputingLayer:
                 severity="high" if smartphone_data_obj.screen_time > 3.0 else "medium",
                 description=f"Extended screen time session: {smartphone_data_obj.screen_time:.1f} hours",
                 recommendation="Take regular breaks to avoid eye strain and overuse",
-                confidence=0.9
+                confidence=0.9 #example placeholder for ai
             ))
 
         # App usage overuse detection
@@ -1104,7 +1104,7 @@ class EdgeComputingLayer:
                 severity="high" if total_app_usage > 4.0 else "medium",
                 description=f"High app usage detected: {total_app_usage:.1f} hours",
                 recommendation="Consider setting app time limits and taking breaks",
-                confidence=0.85
+                confidence=0.85 #example placeholder for ai
             ))
 
         # Touch interaction overuse
@@ -1114,7 +1114,7 @@ class EdgeComputingLayer:
                 severity="medium",
                 description=f"High touch interactions: {smartphone_data_obj.touch_interactions}",
                 recommendation="Take breaks to avoid repetitive strain",
-                confidence=0.8
+                confidence=0.8 #example placeholder for ai
             ))
 
         # Reduced positive feedback (only 10% chance and stricter requirements)
@@ -1128,7 +1128,7 @@ class EdgeComputingLayer:
                 severity="low",
                 description="Balanced device usage detected",
                 recommendation="Keep up the good usage habits!",
-                confidence=0.9
+                confidence=0.9 #example placeholder for ai
             ))
 
         return insights
@@ -1174,9 +1174,9 @@ class IoTSystemManager:
 
     def start_system(self):
         """Start the IoT system monitoring"""
-        print("🚀 Starting Context-Aware IoT System for Technology Overuse Prevention")
+        print("... Starting Context-Aware IoT System for Technology Overuse Prevention ...")
         print("=" * 70)
-        print("\n🏗️  SYSTEM ARCHITECTURE:")
+        print("\n SYSTEM ARCHITECTURE:")
         print("┌─────────────────┐    MQTT     ┌─────────────────┐    MQTT     ┌─────────────────┐")
         print("│  Digital Twin   │◄──────────►│   Edge Layer    │◄──────────►│   Cloud Layer   │")
         print("│ (User Behavior) │   Broker    │ (Raspberry Pi)  │   Broker    │ (AWS Analytics) │")
@@ -1191,7 +1191,7 @@ class IoTSystemManager:
         cycle_count = 0
 
         try:
-            while self.system_running and cycle_count < 20:  # Run 20 cycles for demo
+            while self.system_running and cycle_count < 5:  # Run x cycles for demo
                 cycle_count += 1
                 
                 # Get the current simulated day for display
@@ -1436,6 +1436,7 @@ def main():
     print("🖥️  Edge Layer: Raspberry Pi Simulation")
     print("⚡ Edge AI: Real-time Context Detection")
     print("📡 MQTT: Communication Layer for IoT Components")
+    print("🏥 Health Monitor: System Health Tracking")
 
     # Start MQTT broker for local testing
     print("🔌 Starting local MQTT broker...")
@@ -1450,11 +1451,62 @@ def main():
         print(f"⚠️  Could not start MQTT broker: {e}")
         print("📡 Continuing without embedded broker (MQTT features may be limited)")
 
+    # Initialize health monitoring
+    print("🏥 Initializing IoT Health Monitor...")
+    try:
+        from iot_health_monitor import IoTSystemHealthMonitor
+        health_monitor = IoTSystemHealthMonitor()
+        print("✅ Health monitor initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Could not initialize health monitor: {e}")
+        health_monitor = None
+
     print("🔄 Initializing IoT System components...")
     system = IoTSystemManager()
     print("🔗 Establishing MQTT connections...")
     time.sleep(2)  # Additional time for connections
+    
+    # Start the main system
     system.start_system()
+    
+    # Generate health report after system completion
+    if health_monitor:
+        print("\n🏥 Generating Final Health Report...")
+        try:
+            health_report = health_monitor.get_health_report()
+            
+            print("\n" + "=" * 70)
+            print("🏥 FINAL IOT SYSTEM HEALTH REPORT")
+            print("=" * 70)
+            
+            if 'system_health' in health_report:
+                system_health = health_report['system_health']
+                print(f"\n📊 SYSTEM OVERVIEW:")
+                print(f"   Status: {system_health['current_status'].upper()}")
+                print(f"   Health Score: {system_health['health_score']:.2f}/1.00")
+                print(f"   Uptime: {system_health['overall_uptime']:.1%}")
+                print(f"   Component Failures: {system_health['component_failures']}")
+                print(f"   Error Rate: {system_health['error_rate']:.3f} errors/min")
+                print(f"   Avg Response Time: {system_health['avg_response_time']:.2f}s")
+                print(f"   Data Loss Rate: {system_health['data_loss_rate']:.1%}")
+                print(f"   Connection Stability: {system_health['connection_stability']:.1%}")
+                
+                print(f"\n🎯 RECOMMENDATIONS:")
+                for i, recommendation in enumerate(health_report.get('recommendations', []), 1):
+                    print(f"   {i}. {recommendation}")
+                
+                # Save health report
+                with open('iot_health_report.json', 'w') as f:
+                    json.dump(health_report, f, indent=2, default=str)
+                print(f"\n💾 Health report saved to 'iot_health_report.json'")
+            else:
+                print("⚠️  No health data available")
+                
+        except Exception as e:
+            print(f"⚠️  Error generating health report: {e}")
+        
+        # Stop health monitoring
+        health_monitor.stop_monitoring()
 
 if __name__ == "__main__":
     main()

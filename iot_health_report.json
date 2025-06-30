@@ -1,18 +1,18 @@
 {
-  "report_timestamp": "2025-06-28T17:45:27.730482",
-  "monitoring_duration": 0.08361388027777777,
+  "report_timestamp": "2025-06-30T20:12:59.242067",
+  "monitoring_duration": 0.03590198305555556,
   "system_health": {
     "current_status": "critical",
-    "health_score": 0.706837986012335,
-    "overall_uptime": 0.11068527738267336,
+    "health_score": 0.7390540282014806,
+    "overall_uptime": 0.24788277947258908,
     "component_failures": 0,
     "error_rate": 0.0,
     "avg_response_time": 0.0,
     "data_loss_rate": 0.0,
-    "connection_stability": 0.2916666666666667
+    "connection_stability": 0.2708333333333333
   },
   "component_health": {
-    "timestamp": "2025-06-28T17:45:27.730506",
+    "timestamp": "2025-06-30T20:12:59.242092",
     "system_overview": {
       "total_components": 4,
       "healthy_components": 0,

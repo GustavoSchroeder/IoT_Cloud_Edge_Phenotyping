@@ -36,8 +36,8 @@ class ContextualInsight:
     confidence: float
 
 # MQTT CONFIGURATION
-MQTT_BROKER = "127.0.0.1"  # Local broker - Can be changed to external broker
-MQTT_PORT = 1883 # Default port for MQTT -
+MQTT_BROKER = "127.0.0.1"  # Local broker 
+MQTT_PORT = 1883 # Default port for MQTT
 MQTT_TOPICS = {
     'digital_twin_data': 'iot/digitaltwin/behavior',
     'edge_processed_data': 'iot/edge/processed',
@@ -241,7 +241,7 @@ class AmbientSensor:
     def generate_data(self) -> Dict[str, Any]:
         return {
             'noise_level': random.uniform(30, 80),  # dB
-            'light_intensity': random.uniform(0, 1000),  # lux
+            'light_intensity': random.uniform(0, 1000),  # light intensity
             'temperature': random.uniform(18, 26),  # Celsius
             'humidity': random.uniform(30, 70)  # percentage
         }
@@ -740,12 +740,13 @@ class CloudLayer:
             self.mqtt_client.publish('iot/cloud/recommendations', json.dumps(summary_recommendation))
             print(f"☁️  Cloud sent intervention summary: {summary_recommendation['primary_concern']} (urgency: {summary_recommendation['urgency_score']:.2f})")
 
+#edge class - raspberry pi simulator
 class EdgeComputingLayer:
     """Simulates Raspberry Pi edge computing layer"""
 
     def __init__(self):
         self.data_buffer = deque(maxlen=100)
-        self.digital_twin = SmartphoneDigitalTwin("user_001")
+        self.digital_twin = SmartphoneDigitalTwin("user_001") #simulate 1 one user
         self.wearable = WearableDevice()
         self.ambient_sensor = AmbientSensor()
         self.context_detection_active = True
@@ -770,7 +771,7 @@ class EdgeComputingLayer:
 
         for attempt in range(max_retries):
             try:
-                print(f"🖥️  Edge Layer attempting MQTT connection (attempt {attempt + 1}/{max_retries})")
+                print(f"RaspberryPI - Edge Layer attempting MQTT connection (attempt {attempt + 1}/{max_retries})")
                 self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
                 self.mqtt_client.loop_start()
                 # Wait a bit for the connection to establish
@@ -821,6 +822,7 @@ class EdgeComputingLayer:
             print(f"⚠️  Error processing MQTT message: {e}")
             print(f"⚠️  Message topic: {msg.topic}, payload: {msg.payload[:100]}")
 
+    # provide a regular status update from the edge device to the rest of the system
     def _heartbeat_loop(self):
         """Send periodic heartbeat messages"""
         while True:
@@ -849,7 +851,7 @@ class EdgeComputingLayer:
             print(f"🖥️  Edge published processed data to topic: {topic}")
             print(f"🖥️  Message size: {len(payload)} bytes, Status: {result.rc}")
 
-            # Also publish directly to a simpler topic for testing
+            # TEST - try publish directly to a simpler topic for testing
             simple_message = {
                 'edge_id': 'raspberry_pi_001',
                 'buffer_size': len(processed_data),
@@ -870,16 +872,18 @@ class EdgeComputingLayer:
             }
             self.mqtt_client.publish(MQTT_TOPICS['insights'], json.dumps(message))
 
-    def collect_smartphone_data(self) -> UserBehaviorData:
-        """Simulate a full day's smartphone data with realistic app usage patterns."""
-        # Use the simulated day for the timestamp
+    #main method for simulation
+    def collect_smartphone_data(self) -> UserBehaviorData: # return userBehaviorData
+        """Simulate a full day's smartphone data with realistic app usage patterns"""
+        
+        # Use the day for the timestamp
         simulated_time = datetime.combine(self.simulated_day, datetime.min.time())
         current_time = simulated_time.isoformat()
-        weekday = simulated_time.weekday()  # 0=Monday, 6=Sunday
-        is_weekend = weekday >= 5
+        weekday = simulated_time.weekday()  
+        is_weekend = weekday >= 5 # 0=Monday - 6=Sunday
 
         # App usage pattern weights
-        apps = ['social_media', 'messaging', 'games', 'productivity', 'entertainment']
+        apps = ['social_media', 'messaging', 'games', 'productivity', 'entertainment'] #few apps i tought for the prototype -- only testing
         app_weights = {
             'social_media': 3 if is_weekend else 2,
             'messaging': 2,
@@ -889,7 +893,7 @@ class EdgeComputingLayer:
         }
         total_weight = sum(app_weights[app] for app in apps)
 
-        # Distribute up to 24 hours among apps
+        # Distribute 24 hours among apps
         total_app_time = random.uniform(6, 14) if is_weekend else random.uniform(5, 12)  # realistic total app time
         app_usage = {}
         remaining_time = total_app_time
@@ -906,13 +910,13 @@ class EdgeComputingLayer:
         non_app_time = random.uniform(0.2, 1.5)  # e.g., notifications, lock screen
         screen_time = min(24.0, sum(app_usage.values()) + non_app_time)
 
-        # Location: more likely 'home' on weekends, 'work' on weekdays
+        # Location: for the sake of prototype - more likely 'home' on weekends, 'work' on weekdays
         location = random.choices(
             ['home', 'work', 'leisure', 'commute'],
             weights=[0.7, 0.1, 0.15, 0.05] if is_weekend else [0.4, 0.4, 0.1, 0.1]
         )[0]
 
-        # Other metrics scaled to daily realistic ranges
+        # other metrics scaled to daily realistic ranges
         communication_count = random.randint(10, 60) if is_weekend else random.randint(20, 80)
         touch_interactions = random.randint(800, 3500)
         unlock_frequency = random.randint(30, 120)
@@ -921,9 +925,8 @@ class EdgeComputingLayer:
         ambient_light = random.uniform(10, 800)
         accelerometer = [random.uniform(-0.8, 0.8) for _ in range(3)]
         network_usage = random.uniform(100, 2000)  # MB per day
-
-        # Increment simulated day for next cycle
-        self.simulated_day += timedelta(days=1)
+        
+        self.simulated_day += timedelta(days=1) # Increment simulated day for next cycle
 
         return UserBehaviorData(
             timestamp=current_time,
@@ -943,7 +946,7 @@ class EdgeComputingLayer:
     def preprocess_data(self, smartphone_data: UserBehaviorData, 
                        wearable_data: Dict, ambient_data: Dict) -> Dict[str, Any]:
         """Preprocess and combine data from all sources"""
-        # Combine all data sources
+
         combined_data = {
             'smartphone': asdict(smartphone_data),
             'wearable': wearable_data,
@@ -975,7 +978,7 @@ class EdgeComputingLayer:
         """Calculate contextual appropriateness score with more aggressive penalties"""
         hour = int(smartphone_data.timestamp.split('T')[1].split(':')[0])
 
-        # More aggressive time-based scoring
+        # More aggressive based on time score
         if 23 <= hour or hour <= 5:  # Deep sleep hours - much higher penalty
             time_penalty = random.uniform(0.7, 1.0)
         elif hour == 6 or hour == 22:  # Transition hours
@@ -992,15 +995,15 @@ class EdgeComputingLayer:
         elif smartphone_data.location == 'leisure' and 9 <= hour <= 17:
             location_penalty = 0.4
 
-        # Consider ambient factors with more variation
+        # ambient factors with more variation
         light_factor = min(ambient_data['light_intensity'] / 500.0, 1.0)  # Lower threshold
         noise_factor = ambient_data['noise_level'] / 70.0  # Lower threshold
 
-        # Add usage intensity to context score
+        # usage intensity to context score
         total_app_usage = sum(smartphone_data.app_usage.values())
         usage_penalty = min(total_app_usage / 4.0, 0.3)  # Penalty for high app usage
 
-        # Add some randomness but weighted towards penalties
+        # random to not be so linear
         random_factor = random.uniform(-0.05, 0.15)  # Slightly biased towards lower scores
 
         context_score = 1.0 - (time_penalty + location_penalty + usage_penalty + 
@@ -1172,6 +1175,7 @@ class IoTSystemManager:
         self.cloud_layer = CloudLayer()
         self.system_running = False
 
+    #start byprinting the system architecture
     def start_system(self):
         """Start the IoT system monitoring"""
         print("... Starting Context-Aware IoT System for Technology Overuse Prevention ...")
@@ -1191,7 +1195,7 @@ class IoTSystemManager:
         cycle_count = 0
 
         try:
-            while self.system_running and cycle_count < 5:  # Run x cycles for demo
+            while self.system_running and cycle_count < 6:  # Run x cycles for demo
                 cycle_count += 1
                 
                 # Get the current simulated day for display
@@ -1206,10 +1210,8 @@ class IoTSystemManager:
                 # Run edge processing
                 result = self.edge_layer.run_edge_processing_cycle()
 
-                # Display results
                 self._display_cycle_results(result)
 
-                # Wait before next cycle
                 time.sleep(12)
                 
                 print(f"---------------------------------")
@@ -1225,15 +1227,6 @@ class IoTSystemManager:
         data = result['processed_data']
         insights = result['insights']
 
-        # Show MQTT connection status with more visual emphasis
-        #print("\n" + "=" * 70)
-        #print("🔌 MQTT CONNECTION STATUS")
-       # print("=" * 70)
-       # print("┌─────────────────┐    MQTT     ┌─────────────────┐    MQTT     ┌─────────────────┐")
-       # print("│  Digital Twin   │◄──────────►│   Edge Layer    │◄──────────►│   Cloud Layer   │")
-       # print("└─────────────────┘             └─────────────────┘             └─────────────────┘")
-        
-        # Connection status with clear indicators
         dt_status = "🟢 Connected" if self.edge_layer.digital_twin.mqtt_connected else "🔴 Disconnected"
         edge_status = "🟢 Connected" if self.edge_layer.mqtt_connected else "🔴 Disconnected"
         cloud_status = "🟢 Connected" if self.cloud_layer.mqtt_connected else "🔴 Disconnected"
@@ -1242,7 +1235,6 @@ class IoTSystemManager:
         print(f"🖥️  Edge Layer MQTT Status: {edge_status}")
         print(f"☁️  Cloud Layer MQTT Status: {cloud_status}")
 
-        # Show data flow with visual indicators
         all_connected = (self.edge_layer.digital_twin.mqtt_connected and 
                         self.edge_layer.mqtt_connected and 
                         self.cloud_layer.mqtt_connected)
@@ -1251,8 +1243,8 @@ class IoTSystemManager:
             print("✅ Digital Twin → Edge Layer → Cloud Layer: CONNECTED")
             #print("   Data flowing through all components")
         else:
-            print("❌ Data Flow: PARTIALLY CONNECTED")
-            print("   Some components are not connected")
+            print("Data Flow: PARTIALLY CONNECTED")
+            print("Some components are not connected")
 
         # Show key metrics
         metrics = data['derived_metrics']
@@ -1263,13 +1255,13 @@ class IoTSystemManager:
         print(f"💾 Edge Buffer Size: {result['buffer_size']}")
         print(f"☁️  Cloud Buffer Size: {len(self.cloud_layer.analytics_buffer)}")
 
-        # Show cloud recommendations with more emphasis
+        # chammge to show the cloud recommendations with more emphasis
         if self.edge_layer.cloud_recommendations:
             print("\n" + "=" * 70)
             print("☁️ CLOUD INTERVENTIONS & RECOMMENDATIONS")
             print("=" * 70)
             
-            # Get the latest recommendation
+            # latest recommendation
             latest = self.edge_layer.cloud_recommendations[-1]
             
             if 'behavioral_analysis' in latest:
@@ -1431,12 +1423,12 @@ class IoTSystemManager:
 
 def main():
     # Main function to run the IoT system
-    print("🔧 Initializing Context-Aware IoT System...")
-    print("📱 Digital Twin: Smartphone User Behavior Model")
-    print("🖥️  Edge Layer: Raspberry Pi Simulation")
-    print("⚡ Edge AI: Real-time Context Detection")
-    print("📡 MQTT: Communication Layer for IoT Components")
-    print("🏥 Health Monitor: System Health Tracking")
+    #print("🔧 Initializing Context-Aware IoT System...")
+    #print("📱 Digital Twin: Smartphone User Behavior Model")
+    #print("🖥️  Edge Layer: Raspberry Pi Simulation")
+    #print("⚡ Edge AI: Real-time Context Detection")
+    #print("📡 MQTT: Communication Layer for IoT Components")
+    #print("🏥 Health Monitor: System Health Tracking")
 
     # Start MQTT broker for local testing
     print("🔌 Starting local MQTT broker...")

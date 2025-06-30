@@ -111,7 +111,7 @@ class IoTSystemHealthMonitor:
         try:
             timestamp = datetime.now()
             
-            # Track connection events
+            # Tracking connection events
             self.connection_events.append({
                 'timestamp': timestamp,
                 'topic': msg.topic,
@@ -119,7 +119,7 @@ class IoTSystemHealthMonitor:
                 'component': self._identify_component_from_topic(msg.topic)
             })
             
-            # Parse message for health information
+            # Parser message for health information
             try:
                 message = json.loads(msg.payload.decode())
                 self._process_health_message(msg.topic, message, timestamp)
@@ -159,7 +159,6 @@ class IoTSystemHealthMonitor:
         component = self._identify_component_from_topic(topic)
         
         if component:
-            # Update component health based on message
             if 'status' in message:
                 self._update_component_status(component, message['status'], timestamp)
             
@@ -201,13 +200,9 @@ class IoTSystemHealthMonitor:
         def health_monitor():
             while self.monitoring_active:
                 try:
-                    # Calculate system health metrics
                     health_metrics = self.evaluate_system_health()
+                    self.health_history.append(health_metrics) #store the health metrics
                     
-                    # Store health metrics
-                    self.health_history.append(health_metrics)
-                    
-                    # Publish health status
                     if self.mqtt_connected:
                         health_message = {
                             'timestamp': health_metrics.timestamp.isoformat(),
@@ -216,7 +211,7 @@ class IoTSystemHealthMonitor:
                             'component_count': len(self.component_health),
                             'error_rate': health_metrics.error_rate,
                             'avg_response_time': health_metrics.avg_response_time
-                        }
+                        }   # Publish health status
                         self.mqtt_client.publish('iot/system/health', json.dumps(health_message))
                     
                     # Display health status if significant changes
@@ -231,7 +226,7 @@ class IoTSystemHealthMonitor:
                 
                 time.sleep(30)  # Check health every 30 seconds
         
-        # Start health monitoring thread
+        # Start monitoring thread
         health_thread = threading.Thread(target=health_monitor, daemon=True)
         health_thread.start()
         
@@ -257,31 +252,31 @@ class IoTSystemHealthMonitor:
         """Evaluate overall IoT system health"""
         current_time = datetime.now()
         
-        # Calculate overall uptime
+        # overall uptime
         total_uptime = (current_time - self.start_time).total_seconds()
         system_uptime = self._calculate_system_uptime()
         
-        # Count component failures
+        # component failures
         component_failures = self._count_component_failures()
         
-        # Calculate error rate
+        # error rate
         error_rate = self._calculate_error_rate()
         
-        # Calculate average response time
+        # average response time
         avg_response_time = self._calculate_average_response_time()
         
-        # Calculate data loss rate
+        # data loss rate
         data_loss_rate = self._calculate_data_loss_rate()
         
-        # Calculate connection stability
+        # connection stability
         connection_stability = self._calculate_connection_stability()
         
-        # Determine system status
+        # system status
         system_status = self._determine_system_status(
             error_rate, avg_response_time, system_uptime, data_loss_rate, connection_stability
         )
         
-        # Calculate overall health score
+        # overall health score
         health_score = self._calculate_health_score(
             system_uptime, component_failures, error_rate, 
             avg_response_time, data_loss_rate, connection_stability
@@ -302,9 +297,9 @@ class IoTSystemHealthMonitor:
     def _calculate_system_uptime(self) -> float:
         """Calculate system uptime percentage"""
         if not self.health_history:
-            return 1.0  # Assume 100% uptime if no history
+            return 1.0 
         
-        # Count healthy periods vs total time
+        # healthy periods vs total time
         total_time = (datetime.now() - self.start_time).total_seconds()
         healthy_time = 0
         
@@ -333,11 +328,11 @@ class IoTSystemHealthMonitor:
         if not self.error_log:
             return 0.0
         
-        # Count errors in the last hour
+        # errors in the last hour
         one_hour_ago = datetime.now() - timedelta(hours=1)
         recent_errors = [error for error in self.error_log if error['timestamp'] > one_hour_ago]
         
-        # Calculate errors per minute
+        # errors per minute
         error_rate = len(recent_errors) / 60.0  # errors per minute
         
         return error_rate
@@ -360,11 +355,11 @@ class IoTSystemHealthMonitor:
         if not self.data_loss_events:
             return 0.0
         
-        # Count data loss events in the last hour
+        # data loss events in the last hour
         one_hour_ago = datetime.now() - timedelta(hours=1)
         recent_losses = [loss for loss in self.data_loss_events if loss['timestamp'] > one_hour_ago]
         
-        # Calculate loss rate based on total messages vs lost messages
+        # loss rate based on total messages vs lost messages
         total_messages = len(self.connection_events)
         lost_messages = len(recent_losses)
         
@@ -378,7 +373,7 @@ class IoTSystemHealthMonitor:
         if not self.connection_events:
             return 1.0  # Assume stable if no events
         
-        # Count connection events in the last hour
+        # connection events in the last hour
         one_hour_ago = datetime.now() - timedelta(hours=1)
         recent_events = [event for event in self.connection_events if event['timestamp'] > one_hour_ago]
         
